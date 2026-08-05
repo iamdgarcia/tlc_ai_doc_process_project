@@ -1,0 +1,22 @@
+Tabla compra
+id_compra
+id_supermercado
+dia
+hora
+total
+
+Tabla supermercado
+id_supermercado
+nombre supermercado
+
+
+Tabla productos
+id_producto
+id_compra
+cantidad
+precio
+categoria
+
+Tabla productos
+id_producto
+nombre producto

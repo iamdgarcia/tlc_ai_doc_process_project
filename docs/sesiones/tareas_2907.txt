@@ -1,0 +1,24 @@
+1- Generar dashboard HTML mock. Qué me puede interesar ver?
+- Evolución de gastos a lo largo del tiempo
+- Productos en los que más he gastado
+- Distribución de compras/dinero gastado por dia de la semana y hora
+- Pestaña para ver la evolución de los precios. Estadísticas en general sobre cada producto.
+
+
+
+
+
+2- Determinar un contrato para el endpoint /dashboard 
+GET api/v1/dashboard/report
+{}
+
+
+3- Generar respuesta mock
+
+
+4- Preparar las queries sobre la base de datos.
+
+
+
+---
+

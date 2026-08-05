@@ -1,0 +1,25 @@
+
+
+
+2 - Subir ticket de /data
+
+
+
+3- Preparar Github
+
+
+4- Desplegar en DO
+
+
+5- Gestionar login
+
+8- Subir tickets desde telegram
+
+
+
+6- Modelos open source
+
+
+7- Chat de explotación
+
+

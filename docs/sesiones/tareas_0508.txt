@@ -1,0 +1,9 @@
+Plantear evaluaciones pre subida BD
+
+Ticket duplicado --> OK
+
+Comprobación nombre supermercado --> OK
+
+Comprobación nombre producto
+
+Comprobación precios (cuidado con las comas)
