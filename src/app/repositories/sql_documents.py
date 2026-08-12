@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.linea_ticket import LineaTicket
@@ -46,13 +47,26 @@ class SQLDocumentRepository:
                 if not nombre:
                     continue
                 nombre_raw = nombre
-                nombre = self.similar_fuzzy_product(nombre) or nombre
+                nombre = self._similar_fuzzy_product(nombre) or nombre
                 if nombre != nombre_raw:
                     print(f"Fuzzy matched '{nombre_raw}' to '{nombre}'")
                 producto = self._get_or_create_producto(nombre)
                 cantidad_valor, cantidad_unidad = parse_cantidad(
                     str(producto_data.cantidad) if producto_data.cantidad is not None else None
                 )
+
+                #Check product price vs average price
+                avg_price = self._get_avg_product_price(nombre)
+                if avg_price is not None and producto_data.precio is not None:
+                    if abs(producto_data.precio - avg_price) / avg_price > 0.5:
+                        print(
+                            f"Warning: Price for product '{nombre}' is {producto_data.precio}, "
+                            f"which differs from the average price {avg_price:.2f} by more than 50%"
+                        )
+                        print(f"Rollback to original name: '{nombre_raw}'")
+                        producto = self._get_or_create_producto(nombre_raw)
+
+
                 linea = LineaTicket(
                     id_ticket=ticket.id_ticket,
                     id_producto=producto.id_producto,
@@ -101,7 +115,7 @@ class SQLDocumentRepository:
         """Return a list of all known product names."""
         return [p.nombre for p in self._session.query(Producto).all()]
 
-    def similar_fuzzy_product(self, product_name: str, threshold: int = 80) -> str | None:
+    def _similar_fuzzy_product(self, product_name: str, threshold: int = 80) -> str | None:
         """Return the most similar product from the database using fuzzy matching, none otherwise."""
         from rapidfuzz import fuzz, process
 
@@ -115,3 +129,17 @@ class SQLDocumentRepository:
             if match[1] >= threshold:
                 return match[0]
         return None
+
+
+    def _get_avg_product_price(self, product_name: str) -> float | None:
+        """Return the average price of a product across all tickets, or None if not found."""
+        product = self._session.query(Producto).filter_by(nombre=product_name).first()
+        if not product:
+            return None
+        avg_price = (
+            self._session.query(LineaTicket)
+            .filter_by(id_producto=product.id_producto)
+            .with_entities(func.avg(LineaTicket.precio))
+            .scalar()
+        )
+        return avg_price
