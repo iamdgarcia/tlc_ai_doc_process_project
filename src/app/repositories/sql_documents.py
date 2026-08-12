@@ -20,8 +20,8 @@ class SQLDocumentRepository:
         """Upsert a ticket and its lines. Returns the number of lines saved."""
         if not extraction.id_ticket:
             raise ValueError("id_ticket is required but was None or empty")
-        
-        with self._session.begin():
+
+        try:
             supermercado = self._get_or_create_supermercado(
                 extraction.supermercado.nombre_supermercado or ""
             )
@@ -45,6 +45,10 @@ class SQLDocumentRepository:
                 nombre = (producto_data.nombre_producto or "").strip().lower()
                 if not nombre:
                     continue
+                nombre_raw = nombre
+                nombre = self.similar_fuzzy_product(nombre) or nombre
+                if nombre != nombre_raw:
+                    print(f"Fuzzy matched '{nombre_raw}' to '{nombre}'")
                 producto = self._get_or_create_producto(nombre)
                 cantidad_valor, cantidad_unidad = parse_cantidad(
                     str(producto_data.cantidad) if producto_data.cantidad is not None else None
@@ -57,6 +61,11 @@ class SQLDocumentRepository:
                     precio=producto_data.precio,
                 )
                 self._session.add(linea)
+
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
 
         return len(extraction.productos)
 
@@ -85,5 +94,24 @@ class SQLDocumentRepository:
 
     def get_supermercado_list(self) -> list[str]:
         """Return a list of all known supermarket names."""
-        with self._session.begin():
-            return [sm.nombre for sm in self._session.query(Supermercado).all()]
+        return [sm.nombre for sm in self._session.query(Supermercado).all()]
+
+
+    def get_producto_list(self) -> list[str]:
+        """Return a list of all known product names."""
+        return [p.nombre for p in self._session.query(Producto).all()]
+
+    def similar_fuzzy_product(self, product_name: str, threshold: int = 80) -> str | None:
+        """Return the most similar product from the database using fuzzy matching, none otherwise."""
+        from rapidfuzz import fuzz, process
+
+        # Normalize input
+        product_name = product_name.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+        product_name = product_name.lower()
+
+        products_bbdd = self.get_producto_list()
+        results = process.extract(product_name, products_bbdd, scorer=fuzz.ratio, limit=3)
+        for match in results:
+            if match[1] >= threshold:
+                return match[0]
+        return None
