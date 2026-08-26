@@ -42,6 +42,11 @@ def _get_client() -> Any:
         _client = openai_module.OpenAI(api_key=settings.openai_api_key)
     return _client
 
+from langsmith.wrappers import wrap_openai
+from langsmith import traceable
+def _get_wrapped_client() -> Any:
+    """creates a langsmith client that wraps the openai client to provide a more convenient interface for structured output"""
+    return wrap_openai(_get_client())
 
 def _build_document_context(
     payload: StructuredLLMInput,
@@ -99,7 +104,7 @@ def _extract_pdf_text(document_bytes: bytes) -> str:
     pages_text = [page.extract_text() or "" for page in reader.pages]
     return "\n".join(pages_text).strip()
 
-
+@traceable(name="Extraction Pipeline")
 def llm_as_structured_output(
     *,
     payload: StructuredLLMInput,
@@ -108,7 +113,7 @@ def llm_as_structured_output(
     """Call the LLM and coerce the JSON response into a Pydantic model."""
     _, content = _build_document_context(payload, response_model)
 
-    client = _get_client()
+    client = _get_wrapped_client()
     response = client.chat.completions.create(
         model=settings.openai_model,
         messages=[
