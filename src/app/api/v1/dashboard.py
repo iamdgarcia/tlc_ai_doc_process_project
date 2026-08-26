@@ -17,17 +17,6 @@ DASHBOARD_HTML_PATH = ROOT_DIR / "docs" / "dashboard_mock.html"
 
 
 @router.get(
-    "",
-    response_class=HTMLResponse,
-    summary="Render dashboard mock HTML",
-)
-async def dashboard_view() -> HTMLResponse:
-    """Render the dashboard mock page that consumes the report endpoint."""
-
-    return HTMLResponse(DASHBOARD_HTML_PATH.read_text(encoding="utf-8"))
-
-
-@router.get(
     "/report",
     response_model=DashboardReport,
     summary="Get dashboard monitoring report",

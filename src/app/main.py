@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Form, HTTPException, status
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from app.api.v1.router import router as v1_router
 from app.db.session import engine
 from app.models import Base
+
+_DASHBOARD_HTML = Path(__file__).resolve().parents[2] / "docs" / "dashboard_mock.html"
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,6 +37,11 @@ async def verify_token(token: Annotated[str, Depends(oauth2_scheme)]):
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def dashboard_view() -> HTMLResponse:
+    return HTMLResponse(_DASHBOARD_HTML.read_text(encoding="utf-8"))
 
 
 app.include_router(v1_router, prefix="/api/v1", dependencies=[Depends(verify_token)])

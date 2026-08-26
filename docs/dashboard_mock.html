@@ -496,15 +496,316 @@
       .heatmap .hour { justify-content: flex-start; }
       .timeline { gap: 10px; }
     }
+
+    /* ── Upload button ── */
+    .upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 150ms ease, transform 150ms ease;
+      flex-shrink: 0;
+    }
+
+    .upload-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .upload-btn:active { transform: translateY(0); }
+    .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── Upload result modal ── */
+    #upload-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      animation: fadeIn 150ms ease;
+    }
+
+    #upload-modal.hidden { display: none; }
+
+    .upload-result-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      box-shadow: 0 32px 80px rgba(15, 23, 42, 0.2);
+      border-radius: var(--radius);
+      padding: 32px 32px 28px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn 200ms ease;
+    }
+
+    .upload-result-card .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .upload-result-card h2 { margin: 0; font-size: 1.2rem; letter-spacing: -0.02em; }
+
+    .modal-close {
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      transition: background 150ms ease;
+      flex-shrink: 0;
+    }
+
+    .modal-close:hover { background: var(--bg-soft); }
+
+    .result-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .result-field {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+    }
+
+    .result-field span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .result-field strong { font-size: 15px; }
+
+    .result-products {
+      display: grid;
+      gap: 8px;
+    }
+
+    .result-product-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .result-product-row .prod-name { font-weight: 500; }
+    .result-product-row .prod-qty { color: var(--muted); font-size: 13px; }
+    .result-product-row .prod-price { font-weight: 600; }
+
+    .upload-error {
+      color: var(--danger);
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+    }
+
+    .upload-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      padding: 24px 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-icon {
+      width: 20px; height: 20px;
+      border: 2px solid var(--line);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── Auth overlay ── */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    #auth-overlay.hidden { display: none; }
+
+    .auth-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      box-shadow: 0 32px 80px rgba(15, 23, 42, 0.18);
+      border-radius: var(--radius);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      animation: fadeIn 200ms ease;
+    }
+
+    .auth-card .auth-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.08);
+      color: var(--brand);
+      border: 1px solid rgba(37, 99, 235, 0.14);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+
+    .auth-card h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .auth-card p {
+      margin: -12px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .auth-input-wrap {
+      position: relative;
+    }
+
+    .auth-input-wrap input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--bg-soft);
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .auth-input-wrap input:focus {
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .auth-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      border: none;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 150ms ease, transform 150ms ease;
+    }
+
+    .auth-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .auth-btn:active { transform: translateY(0); }
+    .auth-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    .auth-error {
+      color: var(--danger);
+      font-size: 13px;
+      text-align: center;
+      min-height: 18px;
+    }
   </style>
 </head>
 <body>
+  <div id="upload-modal" class="hidden">
+    <div class="upload-result-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Resultado de extracción</h2>
+        <button class="modal-close" id="modal-close" type="button" aria-label="Cerrar">&#x2715;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="auth-overlay">
+    <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <span class="auth-logo">Luma Spend</span>
+      <h2 id="auth-title">Acceso al dashboard</h2>
+      <p>Introduce tu clave para ver los datos.</p>
+      <form id="auth-form" novalidate>
+        <div class="auth-input-wrap">
+          <input
+            id="auth-key"
+            type="password"
+            placeholder="Clave de acceso"
+            autocomplete="current-password"
+            required
+            autofocus
+          />
+        </div>
+        <div style="height: 12px;"></div>
+        <button class="auth-btn" type="submit" id="auth-submit">Entrar</button>
+      </form>
+      <p class="auth-error" id="auth-error" aria-live="polite"></p>
+    </div>
+  </div>
+
   <main class="shell">
     <section class="topbar">
       <div class="hero">
         <div class="eyebrow">Luma Spend</div>
         <h1>Gasto, hábitos y precios en un vistazo.</h1>
         <p class="lead">Mock para el futuro <strong>GET /api/v1/dashboard/report</strong>.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:12px;">
+        <button class="upload-btn" id="upload-btn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Subir ticket
+        </button>
+        <input id="upload-input" type="file" accept="image/*,.pdf" style="display:none;" />
       </div>
       <div class="meta">
         <div class="meta-card">
@@ -976,9 +1277,35 @@
       }
     }
 
-    async function loadDashboard() {
+    const TOKEN_KEY = 'luma_token';
+    const overlay = document.getElementById('auth-overlay');
+    const authForm = document.getElementById('auth-form');
+    const authKeyInput = document.getElementById('auth-key');
+    const authSubmit = document.getElementById('auth-submit');
+    const authError = document.getElementById('auth-error');
+
+    function showOverlay(message) {
+      authError.textContent = message || '';
+      authKeyInput.value = '';
+      overlay.classList.remove('hidden');
+      authKeyInput.focus();
+    }
+
+    function hideOverlay() {
+      overlay.classList.add('hidden');
+    }
+
+    async function loadDashboard(token) {
       try {
-        const response = await fetch('/api/v1/dashboard/report');
+        const response = await fetch('/api/v1/dashboard/report', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          showOverlay('Sesión expirada. Vuelve a entrar.');
+          return;
+        }
 
         if (!response.ok) {
           throw new Error(`Dashboard report request failed: ${response.status}`);
@@ -986,10 +1313,39 @@
 
         const report = await response.json();
         renderDashboard(report);
+        hideOverlay();
       } catch (error) {
         console.error(error);
       }
     }
+
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = authKeyInput.value.trim();
+      if (!password) return;
+
+      authSubmit.disabled = true;
+      authError.textContent = '';
+
+      try {
+        const body = new URLSearchParams({ username: '', password });
+        const res = await fetch('/token', { method: 'POST', body });
+
+        if (!res.ok) {
+          authError.textContent = 'Clave incorrecta. Inténtalo de nuevo.';
+          authKeyInput.select();
+          return;
+        }
+
+        const data = await res.json();
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        loadDashboard(data.access_token);
+      } catch {
+        authError.textContent = 'Error de conexión.';
+      } finally {
+        authSubmit.disabled = false;
+      }
+    });
 
     tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
@@ -999,7 +1355,104 @@
       });
     });
 
-    loadDashboard();
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    if (savedToken) {
+      loadDashboard(savedToken);
+    } else {
+      showOverlay();
+    }
+
+    // ── Upload flow ──
+    const uploadBtn = document.getElementById('upload-btn');
+    const uploadInput = document.getElementById('upload-input');
+    const uploadModal = document.getElementById('upload-modal');
+    const modalClose = document.getElementById('modal-close');
+    const modalBody = document.getElementById('modal-body');
+
+    function openModal(html) {
+      modalBody.innerHTML = html;
+      uploadModal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      uploadModal.classList.add('hidden');
+      modalBody.innerHTML = '';
+    }
+
+    modalClose.addEventListener('click', closeModal);
+    uploadModal.addEventListener('click', (e) => { if (e.target === uploadModal) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    uploadBtn.addEventListener('click', () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) { showOverlay(); return; }
+      uploadInput.click();
+    });
+
+    uploadInput.addEventListener('change', async () => {
+      const file = uploadInput.files[0];
+      if (!file) return;
+      uploadInput.value = '';
+
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) { showOverlay(); return; }
+
+      openModal(`<div class="upload-spinner"><div class="spinner-icon"></div>Procesando ticket…</div>`);
+      uploadBtn.disabled = true;
+
+      try {
+        const form = new FormData();
+        form.append('file', file);
+
+        const res = await fetch('/api/v1/documents/extract', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          closeModal();
+          showOverlay('Sesión expirada. Vuelve a entrar.');
+          return;
+        }
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          openModal(`<div class="upload-error">Error ${res.status}: ${err.detail || 'No se pudo procesar el documento.'}</div>`);
+          return;
+        }
+
+        const data = await res.json();
+        const ex = data.extraction;
+
+        const productos = (ex.productos || []).map((p) => `
+          <div class="result-product-row">
+            <span class="prod-name">${p.nombre_producto || '—'}</span>
+            <span class="prod-qty">${p.cantidad != null ? p.cantidad : ''}</span>
+            <span class="prod-price">${p.precio != null ? formatCurrency(p.precio) : '—'}</span>
+          </div>
+        `).join('');
+
+        openModal(`
+          <div class="result-meta">
+            <div class="result-field"><span>Documento</span><strong>${data.document_name}</strong></div>
+            <div class="result-field"><span>ID ticket</span><strong>${ex.id_ticket || '—'}</strong></div>
+            <div class="result-field"><span>Supermercado</span><strong>${ex.supermercado?.nombre_supermercado || '—'}</strong></div>
+            <div class="result-field"><span>Fecha</span><strong>${ex.dia || '—'}${ex.hora ? ' ' + ex.hora : ''}</strong></div>
+            <div class="result-field"><span>Total</span><strong>${ex.total != null ? formatCurrency(ex.total) : '—'}</strong></div>
+            <div class="result-field"><span>Almacenado como</span><strong>${data.stored_document_id}</strong></div>
+          </div>
+          ${productos ? `<div style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Productos (${ex.productos.length})</div><div class="result-products">${productos}</div>` : ''}
+        `);
+
+        loadDashboard(token);
+      } catch {
+        openModal(`<div class="upload-error">Error de conexión. Comprueba la red e inténtalo de nuevo.</div>`);
+      } finally {
+        uploadBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
