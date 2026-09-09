@@ -74,6 +74,15 @@ def test_save_creates_lineas_with_parsed_cantidad(repo, session):
     assert mandarina.cantidad_unidad == "kg"
 
 
+def test_save_handles_session_with_existing_transaction(repo, session):
+    repo.get_supermercado_list()
+
+    repo.save(_make_extraction())
+
+    ticket = session.get(Ticket, "T001")
+    assert ticket is not None
+
+
 def test_save_deduplicates_supermercado(repo, session):
     repo.save(_make_extraction("T001"))
     repo.save(_make_extraction("T002"))

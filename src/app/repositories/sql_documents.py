@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.linea_ticket import LineaTicket
 from app.models.producto import Producto
@@ -114,6 +114,55 @@ class SQLDocumentRepository:
     def get_producto_list(self) -> list[str]:
         """Return a list of all known product names."""
         return [p.nombre for p in self._session.query(Producto).all()]
+
+    def get_ticket_list(self, limit: int = 10) -> list[str]:
+        """Return ticket IDs ordered from newest to oldest."""
+        limit = max(0, min(int(limit), 100))
+        return [
+            ticket_id
+            for (ticket_id,) in self._session.query(Ticket.id_ticket)
+            .order_by(Ticket.dia.desc(), Ticket.hora.desc())
+            .limit(limit)
+            .all()
+        ]
+
+    def get_ticket_data(self, ticket_id: str | None) -> dict:
+        """Return a ticket and its product lines in a JSON-serializable form."""
+        if not ticket_id:
+            return {}
+
+        ticket = (
+            self._session.query(Ticket)
+            .options(
+                joinedload(Ticket.supermercado),
+                joinedload(Ticket.lineas).joinedload(LineaTicket.producto),
+            )
+            .filter(Ticket.id_ticket == ticket_id)
+            .first()
+        )
+        if ticket is None:
+            return {}
+
+        return {
+            "ticket_id": ticket.id_ticket,
+            "store": ticket.supermercado.nombre,
+            "date": ticket.dia.isoformat(),
+            "time": ticket.hora.isoformat(),
+            "total": float(ticket.total),
+            "products": [
+                {
+                    "name": line.producto.nombre,
+                    "quantity": (
+                        float(line.cantidad_valor)
+                        if line.cantidad_valor is not None
+                        else None
+                    ),
+                    "unit": line.cantidad_unidad,
+                    "price": float(line.precio) if line.precio is not None else None,
+                }
+                for line in ticket.lineas
+            ],
+        }
 
     def _similar_fuzzy_product(self, product_name: str, threshold: int = 80) -> str | None:
         """Return the most similar product from the database using fuzzy matching, none otherwise."""

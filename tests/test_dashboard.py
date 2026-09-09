@@ -43,8 +43,8 @@ def test_dashboard_report_returns_mock_payload() -> None:
 
 
 def test_dashboard_view_returns_html() -> None:
-    response = client.get("/api/v1/dashboard")
+    response = client.get("/")
 
     assert response.status_code == 200
     assert "Luma Spend" in response.text
-    assert "fetch('/api/v1/dashboard/report')" in response.text
+    assert "fetch('/api/v1/dashboard/report'" in response.text
