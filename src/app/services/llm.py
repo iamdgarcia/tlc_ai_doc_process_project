@@ -39,7 +39,7 @@ def _get_client() -> Any:
                 detail="OPENAI_API_KEY is not configured",
             )
         openai_module = import_module("openai")
-        _client = openai_module.OpenAI(api_key=settings.openai_api_key)
+        _client = openai_module.OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
     return _client
 
 from langsmith.wrappers import wrap_openai

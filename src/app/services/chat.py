@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.repositories.sql_documents import SQLDocumentRepository
-
+from app.services.llm import _get_wrapped_client
 
 GET_TICKET_DATA_TOOL = ChatCompletionToolParam(
     type="function",
@@ -55,10 +55,7 @@ class ChatService:
 
     def __init__(self, session: Session | None = None, client: OpenAI | None = None) -> None:
         self._repository = SQLDocumentRepository(session) if session else None
-        self._client = client or OpenAI(
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_base_url,
-        )
+        self._client = _get_wrapped_client() if client is None else client
     def set_session(self, session: Session) -> None:
         """Set the SQLAlchemy session for the service."""
         self._repository = SQLDocumentRepository(session)
