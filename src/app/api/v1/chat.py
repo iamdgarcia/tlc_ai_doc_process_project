@@ -8,7 +8,7 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat import ChatService
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
-
+service = ChatService()
 @router.post(
     "/chat",
     response_model=ChatResponse,
@@ -20,5 +20,6 @@ async def chat(
 ) -> ChatResponse:
     """Answer a question using data from stored tickets."""
 
-    service = ChatService(session)
-    return ChatResponse(response=service.chat(request.message))
+    service.set_session(session)
+    response = ChatResponse(response=service.chat(request.message))
+    return response

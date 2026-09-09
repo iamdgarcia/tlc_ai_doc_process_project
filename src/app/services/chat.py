@@ -50,21 +50,28 @@ GET_LIST_TICKETS_TOOL = ChatCompletionToolParam(
 
 class ChatService:
     """Answer questions about stored tickets using LLM tool calls."""
+    messages: list[dict[str, Any]] = []
 
-    def __init__(self, session: Session, client: OpenAI | None = None) -> None:
-        self._repository = SQLDocumentRepository(session)
+
+    def __init__(self, session: Session | None = None, client: OpenAI | None = None) -> None:
+        self._repository = SQLDocumentRepository(session) if session else None
         self._client = client or OpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
         )
+    def set_session(self, session: Session) -> None:
+        """Set the SQLAlchemy session for the service."""
+        self._repository = SQLDocumentRepository(session)
 
-    def chat(self, message: str) -> str:
-        messages: list[dict[str, Any]] = [{"role": "user", "content": message}]
-
+    def reset_conversation(self) -> None:
+        """Reset the conversation history."""
+        self.messages = []
+    def chat(self, message: str) -> str: 
+        self.messages.append({"role": "user", "content": message})
         while True:
-            response = self._call_llm(messages)
+            response = self._call_llm(self.messages)
             assistant_message = response.choices[0].message
-            messages.append(assistant_message.model_dump(exclude_none=True))
+            self.messages.append(assistant_message.model_dump(exclude_none=True))
 
             if not assistant_message.tool_calls:
                 return assistant_message.content or ""
@@ -74,7 +81,7 @@ class ChatService:
                     tool_call.function.name,
                     self._parse_tool_arguments(tool_call.function.arguments),
                 )
-                messages.append(
+                self.messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": tool_call.id,
