@@ -1,0 +1,184 @@
+[
+  {
+    "inputs": {"question": "¿Cuánto he gastado en los últimos 12 meses?"},
+    "outputs": {
+      "expected_tools": ["get_spending_summary"],
+      "expected_arguments": {"days": 365},
+      "expected_facts": ["EUR", "mercadona"]
+    },
+    "metadata": {"category": "spending", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Cuál es mi ticket medio de compra?"},
+    "outputs": {
+      "expected_tools": ["get_spending_summary"],
+      "expected_arguments": {},
+      "expected_facts": ["EUR"]
+    },
+    "metadata": {"category": "spending", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Cuánto he gastado en total desde el principio?"},
+    "outputs": {
+      "expected_tools": ["get_spending_summary"],
+      "expected_arguments": {"days": 3650},
+      "expected_facts": ["EUR"]
+    },
+    "metadata": {"category": "spending", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Cuántas veces he ido al supermercado en los últimos 6 meses?"},
+    "outputs": {
+      "expected_tools": ["get_purchase_frequency"],
+      "expected_arguments": {"days": 180},
+      "expected_facts": []
+    },
+    "metadata": {"category": "frequency", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Con qué frecuencia hago la compra?"},
+    "outputs": {
+      "expected_tools": ["get_purchase_frequency"],
+      "expected_arguments": {},
+      "expected_facts": []
+    },
+    "metadata": {"category": "frequency", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Qué productos compro más frecuentemente?"},
+    "outputs": {
+      "expected_tools": ["get_product_quantities"],
+      "expected_arguments": {},
+      "expected_facts": ["pechuga familiar"]
+    },
+    "metadata": {"category": "products", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Cuánta pechuga familiar he comprado en total?"},
+    "outputs": {
+      "expected_tools": ["get_product_quantities"],
+      "expected_arguments": {},
+      "expected_facts": ["pechuga familiar"]
+    },
+    "metadata": {"category": "products", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Cuántas veces he comprado banana o plátano?"},
+    "outputs": {
+      "expected_tools": ["get_product_quantities"],
+      "expected_arguments": {},
+      "expected_facts": ["banana"]
+    },
+    "metadata": {"category": "products", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Ha subido el precio de la pechuga familiar?"},
+    "outputs": {
+      "expected_tools": ["compare_product_prices"],
+      "expected_arguments": {"product_name": "pechuga familiar"},
+      "expected_facts": ["pechuga familiar"]
+    },
+    "metadata": {"category": "price", "difficulty": "medium"}
+  },
+  {
+    "inputs": {"question": "¿Cómo ha evolucionado el precio de la manzana golden?"},
+    "outputs": {
+      "expected_tools": ["compare_product_prices"],
+      "expected_arguments": {"product_name": "manzana golden"},
+      "expected_facts": ["manzana"]
+    },
+    "metadata": {"category": "price", "difficulty": "medium"}
+  },
+  {
+    "inputs": {"question": "Muéstrame mis últimas 5 compras"},
+    "outputs": {
+      "expected_tools": ["get_list_tickets"],
+      "expected_arguments": {"limit": 5},
+      "expected_facts": ["mercadona"]
+    },
+    "metadata": {"category": "tickets", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Qué compré en el ticket 001114?"},
+    "outputs": {
+      "expected_tools": ["get_ticket_data"],
+      "expected_arguments": {"ticket_id": "001114"},
+      "expected_facts": ["001114"]
+    },
+    "metadata": {"category": "tickets", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿En qué supermercado gasto más dinero?"},
+    "outputs": {
+      "expected_tools": ["get_spending_summary"],
+      "expected_arguments": {},
+      "expected_facts": ["mercadona"]
+    },
+    "metadata": {"category": "spending", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "¿Cuánto me ha costado el tomate este año?"},
+    "outputs": {
+      "expected_tools": ["compare_product_prices"],
+      "expected_arguments": {"product_name": "tomate"},
+      "expected_facts": []
+    },
+    "metadata": {"category": "nonexistent", "difficulty": "medium"}
+  },
+  {
+    "inputs": {"question": "¿Cuánto he gastado en Carrefour?"},
+    "outputs": {
+      "expected_tools": ["get_spending_summary"],
+      "expected_arguments": {},
+      "expected_facts": []
+    },
+    "metadata": {"category": "nonexistent", "difficulty": "medium"}
+  },
+  {
+    "inputs": {"question": "¿Cuál es la capital de España?"},
+    "outputs": {
+      "expected_tools": [],
+      "expected_arguments": {},
+      "expected_facts": ["Madrid"]
+    },
+    "metadata": {"category": "off-topic", "difficulty": "easy"}
+  },
+  {
+    "inputs": {"question": "Recomiéndame una receta con pollo"},
+    "outputs": {
+      "expected_tools": [],
+      "expected_arguments": {},
+      "expected_facts": []
+    },
+    "metadata": {"category": "off-topic", "difficulty": "easy"}
+  },
+  {
+    "inputs": {
+      "question": "¿Cuánto gasto de media por visita y con qué frecuencia voy al supermercado?"
+    },
+    "outputs": {
+      "expected_tools": ["get_spending_summary", "get_purchase_frequency"],
+      "expected_arguments": {},
+      "expected_facts": ["EUR"]
+    },
+    "metadata": {"category": "multi-tool", "difficulty": "hard"}
+  },
+  {
+    "inputs": {"question": "¿Ha cambiado el precio de los noquis de patata?"},
+    "outputs": {
+      "expected_tools": ["compare_product_prices"],
+      "expected_arguments": {"product_name": "noquis"},
+      "expected_facts": ["noqui"]
+    },
+    "metadata": {"category": "price", "difficulty": "medium"}
+  },
+  {
+    "inputs": {"question": "¿Cuánto he gastado este año 2026?"},
+    "outputs": {
+      "expected_tools": ["get_spending_summary"],
+      "expected_arguments": {},
+      "expected_facts": ["EUR", "2026"]
+    },
+    "metadata": {"category": "spending", "difficulty": "medium"}
+  }
+]

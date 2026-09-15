@@ -183,6 +183,44 @@ class ChatService:
         """Reset the conversation history."""
         self.messages = []
 
+    def chat_for_eval(self, question: str) -> dict[str, Any]:
+        """Run a fresh conversation and return structured output for evaluation."""
+        self.messages = []
+        answer = self.chat(question)
+        tool_calls = self._extract_tool_calls_from_messages()
+        steps = sum(1 for m in self.messages if m.get("role") == "assistant")
+        completed = "No he podido completar" not in answer
+        return {
+            "answer": answer,
+            "tool_calls": tool_calls,
+            "steps": steps,
+            "completed": completed,
+        }
+
+    def _extract_tool_calls_from_messages(self) -> list[dict[str, Any]]:
+        tool_calls: list[dict[str, Any]] = []
+        for i, msg in enumerate(self.messages):
+            if msg.get("role") != "assistant" or not msg.get("tool_calls"):
+                continue
+            for tc in msg["tool_calls"]:
+                tc_id = tc.get("id")
+                result = None
+                for j in range(i + 1, len(self.messages)):
+                    next_msg = self.messages[j]
+                    if next_msg.get("role") == "tool" and next_msg.get("tool_call_id") == tc_id:
+                        try:
+                            result = json.loads(next_msg.get("content", "{}"))
+                        except json.JSONDecodeError:
+                            result = next_msg.get("content")
+                        break
+                tool_calls.append({
+                    "name": tc["function"]["name"],
+                    "arguments": self._parse_tool_arguments(tc["function"]["arguments"]),
+                    "result": result,
+                })
+        return tool_calls
+
+    @traceable(run_type="chain", name="Luma Agent")
     def chat(self, message: str) -> str:
         self.messages.append({"role": "user", "content": message})
         for _ in range(8):
