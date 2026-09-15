@@ -27,7 +27,7 @@ class ProductoCantidadExtraction(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _coerce_cantidad_to_string(self) -> "ProductoCantidadExtraction":
+    def _coerce_cantidad_to_string(self) -> ProductoCantidadExtraction:
         """Normaliza `cantidad` a `str` cuando es numérica, preservando unidades.
 
         Ejemplos:
@@ -68,3 +68,20 @@ class DocumentExtractionResponse(BaseModel):
     stored_document_id: str = Field(..., examples=["T001"])
     message: str = Field(..., examples=["Document processed successfully"])
     extraction: StructuredExtraction
+
+
+class DocumentExtractionError(BaseModel):
+    """Failure for one file in a batch without discarding successful files."""
+
+    document_name: str
+    error: str
+
+
+class BatchDocumentExtractionResponse(BaseModel):
+    """Per-file result of uploading several receipts."""
+
+    total: int
+    successful: int
+    failed: int
+    results: list[DocumentExtractionResponse]
+    errors: list[DocumentExtractionError]

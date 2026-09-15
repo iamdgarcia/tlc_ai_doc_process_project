@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from itertools import pairwise
 from statistics import pstdev
 
 from sqlalchemy import desc, extract, func, select
 from sqlalchemy.orm import Session
 
-from app.models import LineaTicket, Producto, Ticket
+from app.analytics_questions import SUGGESTED_QUESTIONS
+from app.models import LineaTicket, Producto, Supermercado, Ticket
 from app.schemas.dashboard import (
     DashboardKpi,
     DashboardPeriod,
@@ -15,10 +17,16 @@ from app.schemas.dashboard import (
     HeatmapSlot,
     PriceSeriesPoint,
     ProductPriceReport,
+    ProductQuantityReport,
+    PurchaseDistribution,
+    PurchaseDistributionPoint,
+    RecentTicketReport,
     SpendingPoint,
+    StoreReport,
+    SuggestedQuestion,
     TopProductReport,
+    VisitSummary,
 )
-
 
 SPANISH_MONTHS = [
     "Ene",
@@ -62,6 +70,7 @@ class DashboardRepository:
         spending_trend = self._fetch_spending_trend(period_start, period_end)
         heatmap = self._fetch_purchase_heatmap(period_start, period_end)
         price_reports = self._fetch_price_reports(period_start, period_end, product_stats)
+        visit_summary = self._fetch_visit_summary(period_start, period_end)
 
         summary = [
             DashboardKpi(
@@ -104,6 +113,7 @@ class DashboardRepository:
                 end_date=period_end.isoformat(),
             ),
             summary=summary,
+            visit_summary=visit_summary,
             spending_trend=spending_trend,
             top_products=[
                 TopProductReport(
@@ -114,16 +124,199 @@ class DashboardRepository:
                 )
                 for row in product_stats[:4]
             ],
+            product_quantities=self._fetch_product_quantities(period_start, period_end),
+            stores=self._fetch_stores(period_start, period_end),
+            recent_tickets=self._fetch_recent_tickets(period_start, period_end),
             purchase_heatmap=heatmap,
+            purchase_distribution=self._fetch_purchase_distribution(period_start, period_end),
             price_reports=price_reports,
             highlights=highlights,
+            suggested_questions=[SuggestedQuestion(**question) for question in SUGGESTED_QUESTIONS],
         )
+
+    def _fetch_visit_summary(self, start_date: date, end_date: date) -> VisitSummary:
+        rows = self._session.execute(
+            select(Ticket.dia, Ticket.total)
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .order_by(Ticket.dia, Ticket.hora)
+        ).all()
+        dates = [row.dia for row in rows]
+        unique_dates = sorted(set(dates))
+        gaps = [
+            (current - previous).days
+            for previous, current in pairwise(unique_dates)
+        ]
+        month_count = max(
+            1,
+            (end_date.year - start_date.year) * 12 + end_date.month - start_date.month + 1,
+        )
+        ticket_count = len(rows)
+        total = sum(float(row.total or 0) for row in rows)
+        return VisitSummary(
+            ticket_count=ticket_count,
+            shopping_days=len(unique_dates),
+            average_visits_per_month=round(ticket_count / month_count, 2),
+            average_days_between_visits=(round(sum(gaps) / len(gaps), 1) if gaps else None),
+            average_ticket=round(total / ticket_count, 2) if ticket_count else 0.0,
+            first_visit=unique_dates[0].isoformat() if unique_dates else None,
+            last_visit=unique_dates[-1].isoformat() if unique_dates else None,
+        )
+
+    def _fetch_purchase_distribution(
+        self, start_date: date, end_date: date
+    ) -> PurchaseDistribution:
+        monthly_rows = self._session.execute(
+            select(
+                extract("year", Ticket.dia).label("year"),
+                extract("month", Ticket.dia).label("month"),
+                func.count(Ticket.id_ticket).label("purchase_count"),
+                func.coalesce(func.sum(Ticket.total), 0).label("total_spent"),
+            )
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .group_by("year", "month")
+        ).all()
+        monthly = {
+            (int(row.year), int(row.month)): (int(row.purchase_count), float(row.total_spent))
+            for row in monthly_rows
+        }
+        months: list[PurchaseDistributionPoint] = []
+        cursor = self._first_day_of_month(start_date)
+        while cursor <= end_date:
+            count, spent = monthly.get((cursor.year, cursor.month), (0, 0.0))
+            months.append(
+                PurchaseDistributionPoint(
+                    label=f"{SPANISH_MONTHS[cursor.month - 1]} {str(cursor.year)[2:]}",
+                    purchase_count=count,
+                    total_spent=spent,
+                )
+            )
+            cursor = self._shift_months(cursor, 1)
+
+        weekday_rows = self._session.execute(
+            select(
+                extract("dow", Ticket.dia).label("bucket"),
+                func.count(Ticket.id_ticket).label("purchase_count"),
+                func.coalesce(func.sum(Ticket.total), 0).label("total_spent"),
+            )
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .group_by("bucket")
+        ).all()
+        by_weekday = {
+            int(row.bucket): (int(row.purchase_count), float(row.total_spent))
+            for row in weekday_rows
+        }
+        weekday_order = [1, 2, 3, 4, 5, 6, 0]
+        weekdays = [
+            PurchaseDistributionPoint(
+                label=SPANISH_DAYS[index],
+                purchase_count=by_weekday.get(index, (0, 0.0))[0],
+                total_spent=by_weekday.get(index, (0, 0.0))[1],
+            )
+            for index in weekday_order
+        ]
+
+        hour_rows = self._session.execute(
+            select(
+                extract("hour", Ticket.hora).label("bucket"),
+                func.count(Ticket.id_ticket).label("purchase_count"),
+                func.coalesce(func.sum(Ticket.total), 0).label("total_spent"),
+            )
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .group_by("bucket")
+        ).all()
+        by_hour = {
+            int(row.bucket): (int(row.purchase_count), float(row.total_spent))
+            for row in hour_rows
+        }
+        hours = [
+            PurchaseDistributionPoint(
+                label=f"{hour:02d}:00",
+                purchase_count=by_hour.get(hour, (0, 0.0))[0],
+                total_spent=by_hour.get(hour, (0, 0.0))[1],
+            )
+            for hour in range(24)
+        ]
+        return PurchaseDistribution(months=months, weekdays=weekdays, hours=hours)
+
+    def _fetch_product_quantities(
+        self, start_date: date, end_date: date
+    ) -> list[ProductQuantityReport]:
+        rows = self._session.execute(
+            select(
+                Producto.nombre.label("product_name"),
+                LineaTicket.cantidad_unidad.label("unit"),
+                func.coalesce(func.sum(LineaTicket.cantidad_valor), 0).label("total_quantity"),
+                func.count(LineaTicket.id).label("purchase_count"),
+                func.coalesce(func.sum(LineaTicket.precio), 0).label("total_spent"),
+            )
+            .join(LineaTicket.producto)
+            .join(LineaTicket.ticket)
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .group_by(Producto.id_producto, Producto.nombre, LineaTicket.cantidad_unidad)
+            .order_by(desc("purchase_count"), desc("total_quantity"))
+        ).all()
+        return [
+            ProductQuantityReport(
+                product_name=row.product_name,
+                total_quantity=float(row.total_quantity or 0),
+                unit=row.unit,
+                purchase_count=int(row.purchase_count or 0),
+                total_spent=float(row.total_spent or 0),
+            )
+            for row in rows
+        ]
+
+    def _fetch_stores(self, start_date: date, end_date: date) -> list[StoreReport]:
+        rows = self._session.execute(
+            select(
+                Supermercado.nombre.label("store_name"),
+                func.count(Ticket.id_ticket).label("ticket_count"),
+                func.coalesce(func.sum(Ticket.total), 0).label("total_spent"),
+            )
+            .join(Ticket.supermercado)
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .group_by(Supermercado.id_supermercado, Supermercado.nombre)
+            .order_by(desc("total_spent"))
+        ).all()
+        return [
+            StoreReport(
+                store_name=row.store_name,
+                ticket_count=int(row.ticket_count or 0),
+                total_spent=float(row.total_spent or 0),
+            )
+            for row in rows
+        ]
+
+    def _fetch_recent_tickets(
+        self, start_date: date, end_date: date, limit: int = 5
+    ) -> list[RecentTicketReport]:
+        rows = self._session.execute(
+            select(
+                Ticket.id_ticket,
+                Ticket.dia,
+                Ticket.total,
+                Supermercado.nombre.label("store_name"),
+            )
+            .join(Ticket.supermercado)
+            .where(Ticket.dia >= start_date, Ticket.dia <= end_date)
+            .order_by(Ticket.dia.desc(), Ticket.hora.desc())
+            .limit(limit)
+        ).all()
+        return [
+            RecentTicketReport(
+                ticket_id=row.id_ticket,
+                store_name=row.store_name,
+                date=row.dia.isoformat(),
+                total=float(row.total or 0),
+            )
+            for row in rows
+        ]
 
     def _get_anchor_date(self) -> date:
         """Use the latest ticket date when available, otherwise today."""
 
         latest_date = self._session.scalar(select(func.max(Ticket.dia)))
-        return latest_date or date.today()
+        return latest_date or datetime.now(timezone.utc).date()
 
     def _sum_ticket_total(self, start_date: date, end_date: date) -> float:
         """Return the sum of ticket totals in the requested period."""
@@ -260,7 +453,7 @@ class DashboardRepository:
         """Build product price analytics for the most relevant products."""
 
         reports: list[ProductPriceReport] = []
-        for product in product_stats[:3]:
+        for product in product_stats[:6]:
             product_id = int(product["product_id"])
             series_rows = self._session.execute(
                 select(

@@ -36,6 +36,54 @@ class TopProductReport(BaseModel):
     average_price: float = Field(..., examples=[1.98])
 
 
+class VisitSummary(BaseModel):
+    """Purchase-frequency metrics for the selected period."""
+
+    ticket_count: int
+    shopping_days: int
+    average_visits_per_month: float
+    average_days_between_visits: float | None
+    average_ticket: float
+    first_visit: str | None
+    last_visit: str | None
+
+
+class ProductQuantityReport(BaseModel):
+    """Purchased quantity grouped by normalized product and unit."""
+
+    product_name: str
+    total_quantity: float
+    unit: str | None
+    purchase_count: int
+    total_spent: float
+
+
+class StoreReport(BaseModel):
+    """Spend and visit count for one supermarket."""
+
+    store_name: str
+    ticket_count: int
+    total_spent: float
+
+
+class RecentTicketReport(BaseModel):
+    """Small ticket projection used by the dashboard activity feed."""
+
+    ticket_id: str
+    store_name: str
+    date: str
+    total: float
+
+
+class SuggestedQuestion(BaseModel):
+    """A common question that can be sent directly to the chat agent."""
+
+    id: str
+    label: str
+    prompt: str
+    tool_name: str
+
+
 class HeatmapSlot(BaseModel):
     """Single cell of the purchase heatmap."""
 
@@ -43,6 +91,22 @@ class HeatmapSlot(BaseModel):
     hour: str = Field(..., examples=["18:00"])
     purchase_count: int = Field(..., examples=[5])
     total_spent: float = Field(..., examples=[41.2])
+
+
+class PurchaseDistributionPoint(BaseModel):
+    """Ticket count and spend for one time bucket."""
+
+    label: str
+    purchase_count: int
+    total_spent: float
+
+
+class PurchaseDistribution(BaseModel):
+    """Purchase distribution by month, weekday and hour."""
+
+    months: list[PurchaseDistributionPoint]
+    weekdays: list[PurchaseDistributionPoint]
+    hours: list[PurchaseDistributionPoint]
 
 
 class PriceSeriesPoint(BaseModel):
@@ -72,8 +136,14 @@ class DashboardReport(BaseModel):
     generated_at: str = Field(..., examples=["2026-07-29T12:00:00Z"])
     period: DashboardPeriod
     summary: list[DashboardKpi]
+    visit_summary: VisitSummary
     spending_trend: list[SpendingPoint]
     top_products: list[TopProductReport]
+    product_quantities: list[ProductQuantityReport]
+    stores: list[StoreReport]
+    recent_tickets: list[RecentTicketReport]
     purchase_heatmap: list[HeatmapSlot]
+    purchase_distribution: PurchaseDistribution
     price_reports: list[ProductPriceReport]
     highlights: list[str]
+    suggested_questions: list[SuggestedQuestion]

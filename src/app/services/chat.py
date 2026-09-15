@@ -8,7 +8,9 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionToolParam
 from sqlalchemy.orm import Session
 
+from app.analytics_questions import SUGGESTED_QUESTIONS
 from app.core.config import settings
+from app.repositories.analytics import AnalyticsRepository
 from app.repositories.sql_documents import SQLDocumentRepository
 from app.services.llm import _get_wrapped_client
 
@@ -49,6 +51,94 @@ GET_LIST_TICKETS_TOOL = ChatCompletionToolParam(
 )
 
 
+def _period_tool(name: str, description: str) -> ChatCompletionToolParam:
+    return ChatCompletionToolParam(
+        type="function",
+        function={
+            "name": name,
+            "description": description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "integer",
+                        "description": "Number of days to analyse, ending on the latest stored ticket date",
+                        "default": 365,
+                    }
+                },
+            },
+        },
+    )
+
+
+GET_PURCHASE_FREQUENCY_TOOL = _period_tool(
+    "get_purchase_frequency",
+    "Counts shopping visits/tickets and calculates purchase frequency for a period.",
+)
+GET_SPENDING_SUMMARY_TOOL = _period_tool(
+    "get_spending_summary",
+    "Returns total spend, average ticket and spend by supermarket for a period.",
+)
+GET_PRODUCT_QUANTITIES_TOOL = ChatCompletionToolParam(
+    type="function",
+    function={
+        "name": "get_product_quantities",
+        "description": "Returns total purchased quantity, purchase count and spend per product and unit.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "days": {"type": "integer", "default": 365},
+                "limit": {"type": "integer", "default": 20},
+            },
+        },
+    },
+)
+COMPARE_PRODUCT_PRICES_TOOL = ChatCompletionToolParam(
+    type="function",
+    function={
+        "name": "compare_product_prices",
+        "description": "Returns the chronological price history and price difference for one product.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "product_name": {"type": "string", "description": "Product name or part of it"},
+                "days": {"type": "integer", "default": 3650},
+            },
+            "required": ["product_name"],
+        },
+    },
+)
+GET_FREQUENT_QUESTIONS_TOOL = ChatCompletionToolParam(
+    type="function",
+    function={
+        "name": "get_frequent_questions",
+        "description": "Returns examples of frequent questions supported by the ticket assistant.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+)
+
+CHAT_TOOLS = [
+    GET_TICKET_DATA_TOOL,
+    GET_LIST_TICKETS_TOOL,
+    GET_PURCHASE_FREQUENCY_TOOL,
+    GET_SPENDING_SUMMARY_TOOL,
+    GET_PRODUCT_QUANTITIES_TOOL,
+    COMPARE_PRODUCT_PRICES_TOOL,
+    GET_FREQUENT_QUESTIONS_TOOL,
+]
+
+SYSTEM_MESSAGE = {
+    "role": "system",
+    "content": (
+        "Eres el asistente de compras de Luma Spend. Responde en español de forma breve y clara. "
+        "Usa siempre las herramientas para contestar preguntas sobre tickets, frecuencia, gasto, "
+        "cantidades o precios; nunca inventes datos. El periodo termina en la fecha del último ticket "
+        "almacenado, no en la fecha actual. Aclara la unidad de las cantidades y no mezcles unidades "
+        "distintas. Si faltan datos, dilo explícitamente."
+    ),
+}
+
+
 def _trace_chat_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
     """Exclude the service instance while retaining prompts in LangSmith."""
 
@@ -78,12 +168,16 @@ class ChatService:
         self, session: Session | None = None, client: OpenAI | None = None
     ) -> None:
         self._repository = SQLDocumentRepository(session) if session else None
-        self._client = _get_wrapped_client() if client is None else client
+        self._analytics = AnalyticsRepository(session) if session else None
+        # The dashboard and upload API must be able to start without opening an
+        # LLM client. Initialise it only when the first chat message arrives.
+        self._client = client
         self.messages: list[dict[str, Any]] = []
 
     def set_session(self, session: Session) -> None:
         """Set the SQLAlchemy session for the service."""
         self._repository = SQLDocumentRepository(session)
+        self._analytics = AnalyticsRepository(session)
 
     def reset_conversation(self) -> None:
         """Reset the conversation history."""
@@ -91,7 +185,7 @@ class ChatService:
 
     def chat(self, message: str) -> str:
         self.messages.append({"role": "user", "content": message})
-        while True:
+        for _ in range(8):
             response = self._call_llm(self.messages)
             assistant_message = response.choices[0].message
             self.messages.append(assistant_message.model_dump(exclude_none=True))
@@ -111,6 +205,7 @@ class ChatService:
                         "content": json.dumps(result, ensure_ascii=False),
                     }
                 )
+        return "No he podido completar la consulta después de varios pasos. Prueba a reformularla."
 
     @traceable(
         name="Chat Completion",
@@ -124,11 +219,13 @@ class ChatService:
         process_outputs=_trace_chat_output,
     )
     def _call_llm(self, messages: list[dict[str, Any]]) -> ChatCompletion:
+        if self._client is None:
+            self._client = _get_wrapped_client()
         return self._client.chat.completions.create(
             model=settings.openai_chat_model,
-            messages=messages,
+            messages=[SYSTEM_MESSAGE, *messages],
             temperature=0.2,
-            tools=[GET_TICKET_DATA_TOOL, GET_LIST_TICKETS_TOOL],
+            tools=CHAT_TOOLS,
         )
 
     @staticmethod
@@ -144,8 +241,24 @@ class ChatService:
         return parsed if isinstance(parsed, dict) else {}
 
     def _handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        if self._repository is None or self._analytics is None:
+            return {"error": "Database session is not configured"}
         if tool_name == "get_list_tickets":
             return self._repository.get_ticket_list(arguments.get("limit", 10))
         if tool_name == "get_ticket_data":
             return self._repository.get_ticket_data(arguments.get("ticket_id"))
+        if tool_name == "get_purchase_frequency":
+            return self._analytics.get_purchase_frequency(arguments.get("days", 365))
+        if tool_name == "get_spending_summary":
+            return self._analytics.get_spending_summary(arguments.get("days", 365))
+        if tool_name == "get_product_quantities":
+            return self._analytics.get_product_quantities(
+                arguments.get("days", 365), arguments.get("limit", 20)
+            )
+        if tool_name == "compare_product_prices":
+            return self._analytics.compare_product_prices(
+                arguments.get("product_name", ""), arguments.get("days", 3650)
+            )
+        if tool_name == "get_frequent_questions":
+            return SUGGESTED_QUESTIONS
         return {"error": f"Unknown tool: {tool_name}"}
