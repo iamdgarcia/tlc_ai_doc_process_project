@@ -18,14 +18,11 @@ GET_TICKET_DATA_TOOL = ChatCompletionToolParam(
     type="function",
     function={
         "name": "get_ticket_data",
-        "description": "Returns the data of a specific ticket from the database",
+        "description": "Productos y totales de un ticket concreto.",
         "parameters": {
             "type": "object",
             "properties": {
-                "ticket_id": {
-                    "type": "string",
-                    "description": "The ID of the ticket to retrieve",
-                }
+                "ticket_id": {"type": "string", "description": "ID del ticket."}
             },
             "required": ["ticket_id"],
         },
@@ -36,14 +33,11 @@ GET_LIST_TICKETS_TOOL = ChatCompletionToolParam(
     type="function",
     function={
         "name": "get_list_tickets",
-        "description": "Returns a list of tickets from the database",
+        "description": "Lista los IDs de los tickets más recientes. No incluye productos; usa get_ticket_data para ver el contenido de un ticket concreto.",
         "parameters": {
             "type": "object",
             "properties": {
-                "limit": {
-                    "type": "integer",
-                    "description": "The maximum number of tickets to return",
-                }
+                "limit": {"type": "integer", "description": "Número de tickets a devolver."}
             },
             "required": ["limit"],
         },
@@ -62,7 +56,7 @@ def _period_tool(name: str, description: str) -> ChatCompletionToolParam:
                 "properties": {
                     "days": {
                         "type": "integer",
-                        "description": "Number of days to analyse, ending on the latest stored ticket date",
+                        "description": "Días a analizar (termina en el último ticket).",
                         "default": 365,
                     }
                 },
@@ -73,17 +67,17 @@ def _period_tool(name: str, description: str) -> ChatCompletionToolParam:
 
 GET_PURCHASE_FREQUENCY_TOOL = _period_tool(
     "get_purchase_frequency",
-    "Counts shopping visits/tickets and calculates purchase frequency for a period.",
+    "Frecuencia de compra en un periodo.",
 )
 GET_SPENDING_SUMMARY_TOOL = _period_tool(
     "get_spending_summary",
-    "Returns total spend, average ticket and spend by supermarket for a period.",
+    "Gasto total, medio y por supermercado en un periodo.",
 )
 GET_PRODUCT_QUANTITIES_TOOL = ChatCompletionToolParam(
     type="function",
     function={
         "name": "get_product_quantities",
-        "description": "Returns total purchased quantity, purchase count and spend per product and unit.",
+        "description": "Cantidad total, veces comprado y gasto por producto. Usa esta herramienta para preguntas sobre cuánto o cuántas veces se compró un producto.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -97,11 +91,11 @@ COMPARE_PRODUCT_PRICES_TOOL = ChatCompletionToolParam(
     type="function",
     function={
         "name": "compare_product_prices",
-        "description": "Returns the chronological price history and price difference for one product.",
+        "description": "Historial cronológico de precios de un producto y variación entre el primero y el último. Usa esta herramienta para preguntas sobre el precio o su evolución.",
         "parameters": {
             "type": "object",
             "properties": {
-                "product_name": {"type": "string", "description": "Product name or part of it"},
+                "product_name": {"type": "string", "description": "Nombre o parte del producto (sin tildes si no hay resultados)."},
                 "days": {"type": "integer", "default": 3650},
             },
             "required": ["product_name"],
@@ -112,7 +106,7 @@ GET_FREQUENT_QUESTIONS_TOOL = ChatCompletionToolParam(
     type="function",
     function={
         "name": "get_frequent_questions",
-        "description": "Returns examples of frequent questions supported by the ticket assistant.",
+        "description": "Preguntas frecuentes de ejemplo.",
         "parameters": {"type": "object", "properties": {}},
     },
 )
@@ -130,11 +124,18 @@ CHAT_TOOLS = [
 SYSTEM_MESSAGE = {
     "role": "system",
     "content": (
-        "Eres el asistente de compras de Luma Spend. Responde en español de forma breve y clara. "
-        "Usa siempre las herramientas para contestar preguntas sobre tickets, frecuencia, gasto, "
-        "cantidades o precios; nunca inventes datos. El periodo termina en la fecha del último ticket "
-        "almacenado, no en la fecha actual. Aclara la unidad de las cantidades y no mezcles unidades "
-        "distintas. Si faltan datos, dilo explícitamente."
+        "Eres el asistente de Luma Spend. Responde en español, breve. "
+        "Usa siempre las herramientas; nunca inventes datos. "
+        "El periodo termina en el último ticket, no hoy. "
+        "Indica la unidad de las cantidades. Si faltan datos, dilo. "
+        "Reglas de uso de herramientas: "
+        "precio o evolución de precio → compare_product_prices; "
+        "cantidad comprada o veces que se compró un producto → get_product_quantities; "
+        "gasto total o por supermercado → get_spending_summary (sin llamar antes a get_list_tickets); "
+        "frecuencia de compra → get_purchase_frequency; "
+        "listar compras recientes → get_list_tickets (no llames a get_ticket_data salvo que el usuario pida los productos de un ticket concreto). "
+        "Usa el mínimo de llamadas necesarias. "
+        "Si compare_product_prices devuelve history vacío o found:false, reintenta con el nombre sin tildes ni caracteres especiales."
     ),
 }
 
