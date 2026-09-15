@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,7 @@ from evaluators import (
 )
 
 DATASET_NAME = "luma-spend-agent-v1"
+INTER_EXAMPLE_DELAY = 2.0  # seconds between examples to avoid rate limits
 
 
 def predict(inputs: dict) -> dict:
@@ -48,9 +50,11 @@ def predict(inputs: dict) -> dict:
     db: Session = SessionLocal()
     try:
         service = ChatService(session=db)
-        return service.chat_for_eval(inputs["question"])
+        result = service.chat_for_eval(inputs["question"])
     finally:
         db.close()
+    time.sleep(INTER_EXAMPLE_DELAY)
+    return result
 
 
 def main() -> None:
