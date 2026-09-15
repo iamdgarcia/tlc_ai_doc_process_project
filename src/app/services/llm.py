@@ -8,6 +8,8 @@ from importlib import import_module
 from typing import Any, TypeVar
 
 from fastapi import HTTPException, status
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -26,6 +28,7 @@ class StructuredLLMInput:
 
 
 _client: Any | None = None
+_wrapped_client: Any | None = None
 
 
 def _get_client() -> Any:
@@ -39,14 +42,19 @@ def _get_client() -> Any:
                 detail="OPENAI_API_KEY is not configured",
             )
         openai_module = import_module("openai")
-        _client = openai_module.OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+        _client = openai_module.OpenAI(
+            api_key=settings.openai_api_key, base_url=settings.openai_base_url
+        )
     return _client
 
-from langsmith.wrappers import wrap_openai
-from langsmith import traceable
+
 def _get_wrapped_client() -> Any:
     """creates a langsmith client that wraps the openai client to provide a more convenient interface for structured output"""
-    return wrap_openai(_get_client())
+    global _wrapped_client
+    if _wrapped_client is None:
+        _wrapped_client = wrap_openai(_get_client())
+    return _wrapped_client
+
 
 def _build_document_context(
     payload: StructuredLLMInput,
@@ -54,7 +62,9 @@ def _build_document_context(
 ) -> tuple[str, list[dict[str, Any]]]:
     """Build a prompt and content payload adapted to the input file type."""
 
-    schema = json.dumps(response_model.model_json_schema(), ensure_ascii=False, indent=2)
+    schema = json.dumps(
+        response_model.model_json_schema(), ensure_ascii=False, indent=2
+    )
     instructions = (
         "Extrae la información estructurada del documento y devuelve SOLO JSON válido "
         "con exactamente los campos definidos en este esquema:\n\n"
@@ -103,6 +113,7 @@ def _extract_pdf_text(document_bytes: bytes) -> str:
     reader = PdfReader(io.BytesIO(document_bytes))
     pages_text = [page.extract_text() or "" for page in reader.pages]
     return "\n".join(pages_text).strip()
+
 
 @traceable(name="Extraction Pipeline")
 def llm_as_structured_output(

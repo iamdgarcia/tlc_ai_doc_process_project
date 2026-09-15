@@ -16,7 +16,7 @@ class Settings:
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
     openai_base_url: str | None = os.getenv("BASE_URL")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-    openai_chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "zai-org/glm-5.3-flash")
+    openai_chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "google/gemma-4-31b-it")
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./receipts.db")
 
 

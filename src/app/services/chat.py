@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from langsmith import traceable
 from openai import OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionToolParam
 from sqlalchemy.orm import Session
@@ -48,14 +49,38 @@ GET_LIST_TICKETS_TOOL = ChatCompletionToolParam(
 )
 
 
+def _trace_chat_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Exclude the service instance while retaining prompts in LangSmith."""
+
+    return {"messages": inputs.get("messages", [])}
+
+
+def _trace_chat_output(response: ChatCompletion) -> dict[str, Any]:
+    """Expose standard token usage so LangSmith can calculate model cost."""
+
+    output = response.model_dump(exclude_none=True)
+    usage = output.pop("usage", None)
+    if usage:
+        input_tokens = usage.get("prompt_tokens", 0)
+        output_tokens = usage.get("completion_tokens", 0)
+        output["usage_metadata"] = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": usage.get("total_tokens", input_tokens + output_tokens),
+        }
+    return output
+
+
 class ChatService:
     """Answer questions about stored tickets using LLM tool calls."""
-    messages: list[dict[str, Any]] = []
 
-
-    def __init__(self, session: Session | None = None, client: OpenAI | None = None) -> None:
+    def __init__(
+        self, session: Session | None = None, client: OpenAI | None = None
+    ) -> None:
         self._repository = SQLDocumentRepository(session) if session else None
         self._client = _get_wrapped_client() if client is None else client
+        self.messages: list[dict[str, Any]] = []
+
     def set_session(self, session: Session) -> None:
         """Set the SQLAlchemy session for the service."""
         self._repository = SQLDocumentRepository(session)
@@ -63,7 +88,8 @@ class ChatService:
     def reset_conversation(self) -> None:
         """Reset the conversation history."""
         self.messages = []
-    def chat(self, message: str) -> str: 
+
+    def chat(self, message: str) -> str:
         self.messages.append({"role": "user", "content": message})
         while True:
             response = self._call_llm(self.messages)
@@ -86,6 +112,17 @@ class ChatService:
                     }
                 )
 
+    @traceable(
+        name="Chat Completion",
+        run_type="llm",
+        metadata={
+            "ls_provider": "novita",
+            "ls_model_name": settings.openai_chat_model,
+            "ls_model_type": "chat",
+        },
+        process_inputs=_trace_chat_inputs,
+        process_outputs=_trace_chat_output,
+    )
     def _call_llm(self, messages: list[dict[str, Any]]) -> ChatCompletion:
         return self._client.chat.completions.create(
             model=settings.openai_chat_model,
