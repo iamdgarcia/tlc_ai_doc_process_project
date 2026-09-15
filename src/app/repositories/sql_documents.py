@@ -57,14 +57,18 @@ class SQLDocumentRepository:
 
                 #Check product price vs average price
                 avg_price = self._get_avg_product_price(nombre)
-                if avg_price is not None and producto_data.precio is not None:
-                    if abs(producto_data.precio - avg_price) / avg_price > 0.5:
-                        print(
-                            f"Warning: Price for product '{nombre}' is {producto_data.precio}, "
-                            f"which differs from the average price {avg_price:.2f} by more than 50%"
-                        )
-                        print(f"Rollback to original name: '{nombre_raw}'")
-                        producto = self._get_or_create_producto(nombre_raw)
+                if (
+                    avg_price is not None
+                    and avg_price > 0
+                    and producto_data.precio is not None
+                    and abs(producto_data.precio - avg_price) / avg_price > 0.5
+                ):
+                    print(
+                        f"Warning: Price for product '{nombre}' is {producto_data.precio}, "
+                        f"which differs from the average price {avg_price:.2f} by more than 50%"
+                    )
+                    print(f"Rollback to original name: '{nombre_raw}'")
+                    producto = self._get_or_create_producto(nombre_raw)
 
 
                 linea = LineaTicket(

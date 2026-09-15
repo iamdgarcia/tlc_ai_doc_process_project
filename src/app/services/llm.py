@@ -10,7 +10,7 @@ from typing import Any, TypeVar
 from fastapi import HTTPException, status
 from langsmith import traceable
 from langsmith.wrappers import wrap_openai
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
 
@@ -125,22 +125,45 @@ def llm_as_structured_output(
     _, content = _build_document_context(payload, response_model)
 
     client = _get_wrapped_client()
-    response = client.chat.completions.create(
-        model=settings.openai_model,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Eres un extractor de documentos. Devuelve solo JSON válido "
-                    "sin texto adicional."
-                ),
-            },
-            {"role": "user", "content": content},
-        ],
-        temperature=0.7,
-        response_format={"type": "json_object"},
-    )
-    raw_content = response.choices[0].message.content or "{}"
-    parsed_content = json.loads(raw_content)
-    response = response_model.model_validate(parsed_content)
-    return response
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": (
+                "Eres un extractor OCR de tickets. Examina la imagen completa y devuelve "
+                "todos los campos del esquema. Nunca devuelvas un objeto JSON vacío."
+            ),
+        },
+        {"role": "user", "content": content},
+    ]
+    last_error: json.JSONDecodeError | ValidationError | None = None
+    for attempt in range(2):
+        response = client.chat.completions.create(
+            model=settings.openai_model,
+            messages=messages,
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        raw_content = response.choices[0].message.content or ""
+        try:
+            parsed_content = json.loads(raw_content)
+            return response_model.model_validate(parsed_content)
+        except (json.JSONDecodeError, ValidationError) as exc:
+            last_error = exc
+            if attempt == 0:
+                messages.extend(
+                    [
+                        {"role": "assistant", "content": raw_content or "{}"},
+                        {
+                            "role": "user",
+                            "content": (
+                                "La respuesta anterior está vacía o no cumple el esquema. "
+                                "Vuelve a examinar el ticket y devuelve el objeto JSON completo, "
+                                "incluyendo supermercado y productos."
+                            ),
+                        },
+                    ]
+                )
+
+    if last_error is not None:
+        raise last_error
+    raise ValueError("The model returned no structured response")

@@ -53,7 +53,7 @@ async def extract_documents(
 
     if len(files) > 20:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Se pueden subir como máximo 20 tickets a la vez.",
         )
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import datetime
-import pytest
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base, Ticket, Producto, Supermercado, LineaTicket
+from app.models import Base, LineaTicket, Producto, Supermercado, Ticket
 from app.repositories.sql_documents import SQLDocumentRepository
 from app.schemas.extraction import (
     ProductoCantidadExtraction,
@@ -115,6 +115,22 @@ def test_upsert_updates_existing_ticket(repo, session):
     assert float(ticket.total) == pytest.approx(99.0)
     lineas = session.query(LineaTicket).filter_by(id_ticket="T001").all()
     assert len(lineas) == 1
+
+
+def test_save_does_not_divide_by_zero_for_zero_price_history(repo, session):
+    first = _make_extraction("T-ZERO-1")
+    first.productos[0].precio = 0
+    repo.save(first)
+
+    second = _make_extraction("T-ZERO-2")
+    second.productos = [
+        ProductoCantidadExtraction(
+            nombre_producto="mandarina", cantidad="1kg", precio=2.5
+        )
+    ]
+    repo.save(second)
+
+    assert session.get(Ticket, "T-ZERO-2") is not None
 
 
 def test_save_raises_if_id_ticket_is_none(repo):

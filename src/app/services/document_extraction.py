@@ -42,13 +42,13 @@ class DocumentExtractionService:
         file: UploadFile,
     ) -> DocumentExtractionResponse:
         """Extract structured data from a file and store the result."""
-    
+
         document_bytes = await file.read()
         document_name = file.filename or "uploaded_file"
         content_type = (file.content_type or "application/octet-stream").lower()
         if not document_bytes:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El archivo está vacío.",
             )
         if not (content_type.startswith("image/") or content_type == "application/pdf"):
@@ -110,7 +110,7 @@ class DocumentExtractionService:
             detail = _provider_error_detail(exc)
             logger.warning("LLM rejected %s: %s", document_name, detail)
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"El proveedor rechazó el documento o el modelo: {detail}",
             ) from exc
         except APIStatusError as exc:
@@ -123,7 +123,7 @@ class DocumentExtractionService:
         except (json.JSONDecodeError, ValidationError) as exc:
             logger.warning("Invalid structured response for %s: %s", document_name, exc)
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El modelo no devolvió una estructura de ticket válida.",
             ) from exc
         except Exception as exc:
@@ -133,10 +133,24 @@ class DocumentExtractionService:
                 detail=f"Error interno de extracción ({type(exc).__name__}). Consulta el log del servidor.",
             ) from exc
 
+        missing_fields = []
         if not extracted_structure.id_ticket:
+            missing_fields.append("id_ticket")
+        if not extracted_structure.supermercado.nombre_supermercado:
+            missing_fields.append("supermercado")
+        if not extracted_structure.dia:
+            missing_fields.append("dia")
+        if not extracted_structure.hora:
+            missing_fields.append("hora")
+        if not extracted_structure.productos:
+            missing_fields.append("productos")
+        if missing_fields:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="No se pudo extraer el id_ticket del documento. El ticket no tiene número visible.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "El modelo no pudo extraer estos campos obligatorios: "
+                    f"{', '.join(missing_fields)}. Comprueba la calidad de la imagen."
+                ),
             )
 
         try:
@@ -144,7 +158,7 @@ class DocumentExtractionService:
         except (ValueError, TypeError) as exc:
             logger.warning("Invalid extracted values for %s: %s", document_name, exc)
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Los datos extraídos no son válidos: {exc}",
             ) from exc
         except Exception as exc:
