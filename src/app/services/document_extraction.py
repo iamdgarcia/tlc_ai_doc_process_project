@@ -1,38 +1,27 @@
 from __future__ import annotations
 
-import json
 import logging
 
+import httpx
 from fastapi import HTTPException, UploadFile, status
-from openai import (
-    APIConnectionError,
-    APIStatusError,
-    APITimeoutError,
-    AuthenticationError,
-    BadRequestError,
-    NotFoundError,
-    RateLimitError,
-)
-from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.repositories.sql_documents import SQLDocumentRepository
-from app.schemas.extraction import DocumentExtractionResponse, StructuredExtraction
-from app.services.llm import StructuredLLMInput, llm_as_structured_output
+from app.schemas.extraction import DocumentExtractionResponse
+from app.services.scaneame import (
+    ScaneameAPIError,
+    ScaneameConfigurationError,
+    ScaneameInputError,
+    ScaneameProcessingTimeout,
+    ScaneameProtocolError,
+    extract_ticket,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _provider_error_detail(error: APIStatusError) -> str:
-    """Return a short provider error without leaking request contents."""
-
-    message = getattr(error, "message", "") or str(error)
-    return " ".join(message.split())[:300]
-
-
 class DocumentExtractionService:
-    """Coordinates LLM-based extraction and SQL persistence for uploaded documents."""
+    """Coordinates Scanéame extraction and SQL persistence for uploaded documents."""
 
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -46,12 +35,13 @@ class DocumentExtractionService:
         document_bytes = await file.read()
         document_name = file.filename or "uploaded_file"
         content_type = (file.content_type or "application/octet-stream").lower()
+        mime_type = content_type.split(";", maxsplit=1)[0].strip()
         if not document_bytes:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El archivo está vacío.",
             )
-        if not (content_type.startswith("image/") or content_type == "application/pdf"):
+        if not (mime_type.startswith("image/") or mime_type == "application/pdf"):
             raise HTTPException(
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail=f"Formato no soportado: {content_type}. Usa una imagen o un PDF.",
@@ -59,72 +49,86 @@ class DocumentExtractionService:
 
         repo = SQLDocumentRepository(self._session)
 
-        supermercados = repo.get_supermercado_list()  # Get the list of known supermarkets
-
         try:
-            extracted_structure = llm_as_structured_output(
-                payload=StructuredLLMInput(
-                    document_name=document_name,
-                    content_type=content_type,
-                    document_bytes=document_bytes,
-                    lista_supermercados=supermercados,
-                ),
-                response_model=StructuredExtraction,
-            )
+            extracted_structure = await extract_ticket(document_bytes, content_type)
         except HTTPException:
             raise
-        except AuthenticationError as exc:
-            logger.warning("LLM authentication failed for %s", document_name)
+        except ScaneameConfigurationError as exc:
+            logger.error("Scanéame is not configured")
             raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="El proveedor de IA rechazó la API key configurada.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="SCANEAME_API_KEY no está configurada.",
             ) from exc
-        except NotFoundError as exc:
-            logger.warning("LLM model not found for %s: %s", document_name, settings.openai_model)
+        except ScaneameInputError as exc:
+            logger.warning("Invalid Scanéame input for %s: %s", document_name, exc)
             raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=(
-                    f"El modelo '{settings.openai_model}' no está disponible en el proveedor "
-                    "configurado. Revisa OPENAI_MODEL y BASE_URL."
-                ),
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=str(exc),
             ) from exc
-        except RateLimitError as exc:
-            logger.warning("LLM rate limit while processing %s", document_name)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="El proveedor de IA ha alcanzado su límite de peticiones. Inténtalo más tarde.",
-            ) from exc
-        except APITimeoutError as exc:
-            logger.warning("LLM timeout while processing %s", document_name)
+        except ScaneameProcessingTimeout as exc:
+            logger.warning("Scanéame processing timeout for %s", document_name)
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="El proveedor de IA tardó demasiado en responder.",
+                detail="Scanéame tardó demasiado en procesar el documento.",
             ) from exc
-        except APIConnectionError as exc:
-            logger.warning("LLM connection error while processing %s: %s", document_name, exc)
+        except httpx.TimeoutException as exc:
+            logger.warning("Scanéame request timeout for %s", document_name)
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Scanéame tardó demasiado en responder.",
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.warning("Scanéame connection error for %s: %s", document_name, exc)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="No se pudo conectar con el proveedor de IA. Revisa BASE_URL y la red.",
+                detail="No se pudo conectar con Scanéame.",
             ) from exc
-        except BadRequestError as exc:
-            detail = _provider_error_detail(exc)
-            logger.warning("LLM rejected %s: %s", document_name, detail)
+        except ScaneameAPIError as exc:
+            logger.warning(
+                "Scanéame API error for %s (HTTP %s): %s",
+                document_name,
+                exc.status_code,
+                exc.detail,
+            )
+            if exc.status_code in {
+                status.HTTP_401_UNAUTHORIZED,
+                status.HTTP_403_FORBIDDEN,
+            }:
+                detail = "Scanéame rechazó la API key configurada."
+                response_status = status.HTTP_502_BAD_GATEWAY
+            elif exc.status_code == status.HTTP_404_NOT_FOUND:
+                detail = "El endpoint 'tickets' no está disponible en Scanéame."
+                response_status = status.HTTP_502_BAD_GATEWAY
+            elif exc.status_code in {
+                status.HTTP_400_BAD_REQUEST,
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+            }:
+                detail = f"Scanéame rechazó el documento: {exc.detail}"
+                response_status = status.HTTP_422_UNPROCESSABLE_CONTENT
+            elif exc.status_code in {
+                status.HTTP_402_PAYMENT_REQUIRED,
+                status.HTTP_429_TOO_MANY_REQUESTS,
+            }:
+                detail = (
+                    f"Scanéame no puede procesar peticiones temporalmente: {exc.detail}"
+                )
+                response_status = status.HTTP_503_SERVICE_UNAVAILABLE
+            elif exc.status_code == status.HTTP_504_GATEWAY_TIMEOUT:
+                detail = "Scanéame tardó demasiado en procesar el documento."
+                response_status = status.HTTP_504_GATEWAY_TIMEOUT
+            else:
+                detail = f"Error de Scanéame: {exc.detail}"
+                response_status = status.HTTP_502_BAD_GATEWAY
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"El proveedor rechazó el documento o el modelo: {detail}",
+                status_code=response_status,
+                detail=detail,
             ) from exc
-        except APIStatusError as exc:
-            detail = _provider_error_detail(exc)
-            logger.warning("LLM provider error for %s: %s", document_name, detail)
+        except ScaneameProtocolError as exc:
+            logger.warning("Invalid Scanéame response for %s: %s", document_name, exc)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Error del proveedor de IA: {detail}",
-            ) from exc
-        except (json.JSONDecodeError, ValidationError) as exc:
-            logger.warning("Invalid structured response for %s: %s", document_name, exc)
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="El modelo no devolvió una estructura de ticket válida.",
+                detail="Scanéame devolvió una respuesta de ticket no válida.",
             ) from exc
         except Exception as exc:
             logger.exception("Unexpected extraction error for %s", document_name)
@@ -148,7 +152,7 @@ class DocumentExtractionService:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
-                    "El modelo no pudo extraer estos campos obligatorios: "
+                    "Scanéame no pudo extraer estos campos obligatorios: "
                     f"{', '.join(missing_fields)}. Comprueba la calidad de la imagen."
                 ),
             )

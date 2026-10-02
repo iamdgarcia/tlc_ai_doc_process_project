@@ -1,16 +1,11 @@
-from io import BytesIO
+import asyncio
 
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.schemas.extraction import (
+    ProductoCantidadExtraction,
     StructuredExtraction,
     SupermercadoExtraction,
-    ProductoCantidadExtraction,
 )
-
-
-client = TestClient(app)
+from app.services.document_extraction import DocumentExtractionService
 
 
 def test_extract_document_returns_structured_response(monkeypatch) -> None:
@@ -31,33 +26,42 @@ def test_extract_document_returns_structured_response(monkeypatch) -> None:
         ],
     )
 
-    def fake_llm_as_structured_output(**_: object) -> StructuredExtraction:
+    async def fake_extract_ticket(*_: object) -> StructuredExtraction:
         return mocked_output
 
     def fake_save(self, extraction: StructuredExtraction) -> int:
         return len(extraction.productos)
 
     monkeypatch.setattr(
-        "app.services.document_extraction.llm_as_structured_output",
-        fake_llm_as_structured_output,
+        "app.services.document_extraction.extract_ticket",
+        fake_extract_ticket,
     )
     monkeypatch.setattr(
         "app.repositories.sql_documents.SQLDocumentRepository.save",
         fake_save,
     )
 
-    response = client.post(
-        "/api/v1/documents/extract",
-        files={"file": ("invoice.pdf", BytesIO(b"dummy pdf bytes"), "application/pdf")},
+    class MemoryUpload:
+        filename = "invoice.pdf"
+        content_type = "application/pdf"
+
+        async def read(self) -> bytes:
+            return b"dummy pdf bytes"
+
+    upload = MemoryUpload()
+    response = asyncio.run(
+        DocumentExtractionService(session=object()).extract_and_store(upload)  # type: ignore[arg-type]
     )
 
-    assert response.status_code == 200
-    body = response.json()
+    body = response.model_dump()
     assert body["document_name"] == "invoice.pdf"
     assert body["content_type"] == "application/pdf"
     assert body["stored_document_id"] == "T-TEST-001"
     assert body["message"] == "Document processed successfully"
-    assert body["extraction"]["supermercado"]["nombre_supermercado"] == "Supermercado Central"
+    assert (
+        body["extraction"]["supermercado"]["nombre_supermercado"]
+        == "Supermercado Central"
+    )
     assert body["extraction"]["dia"] == "2026-07-15"
     assert body["extraction"]["hora"] == "18:45:00"
     assert body["extraction"]["total"] == 154.75

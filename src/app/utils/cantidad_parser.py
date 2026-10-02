@@ -15,7 +15,8 @@ def parse_cantidad(s: str | None) -> tuple[float | None, str | None]:
     if not s:
         return None, None
 
-    match = re.match(r"^(\d+\.?\d*)\s*([a-zA-Z]*)$", s.strip())
+    normalized = s.strip().replace(",", ".")
+    match = re.match(r"^(\d+\.?\d*)\s*([a-zA-Z]*)$", normalized)
     if not match:
         return None, None
 

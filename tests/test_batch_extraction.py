@@ -42,7 +42,9 @@ def test_batch_extraction_reports_success_and_failure(monkeypatch) -> None:
     ]
 
     response = Response()
-    result = asyncio.run(extract_documents(files=files, session=None, response=response))
+    result = asyncio.run(
+        extract_documents(files=files, session=None, response=response)
+    )
 
     assert result.total == 2
     assert result.successful == 1
@@ -61,18 +63,14 @@ def test_extraction_exposes_safe_unexpected_error(monkeypatch) -> None:
         async def read(self) -> bytes:
             return b"image"
 
-    def broken_extraction(**_):
+    async def broken_extraction(*_):
         raise RuntimeError("provider response was invalid")
 
     monkeypatch.setattr(
-        "app.services.document_extraction.llm_as_structured_output",
+        "app.services.document_extraction.extract_ticket",
         broken_extraction,
     )
     service = DocumentExtractionService(session=object())
-    monkeypatch.setattr(
-        "app.services.document_extraction.SQLDocumentRepository.get_supermercado_list",
-        lambda self: [],
-    )
     try:
         asyncio.run(service.extract_and_store(MemoryUpload()))  # type: ignore[arg-type]
     except HTTPException as exc:
