@@ -1,10 +1,12 @@
 # Módulo 05 — Agente Conversacional con Tool Calling
-![agent](../agent.png)
+
 **Ficheros:** `src/app/services/chat.py` · `src/app/repositories/analytics.py`
 
 ---
 
 ## ¿Qué es tool calling?
+
+![Agente conversacional](../agent.png)
 
 Los LLMs modernos pueden declarar que quieren llamar a una función externa antes de responder. El flujo es:
 

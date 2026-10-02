@@ -39,12 +39,15 @@ Ver [`../diagram.drawio`](../diagram.drawio):
 
 ---
 
-## Sesiones de desarrollo
+## Sesiones en directo
 
-| Sesión | Fecha | Contenido |
-|--------|-------|-----------|
-| S1 | Jul 29 | Setup inicial, endpoints básicos |
-| S2 | Sep 5 | Dashboard HTML, queries analíticas |
-| S3 | Sep 12 | Validaciones: nombre producto (fuzzy), precios |
-| S4 | Sep 15 | Evaluaciones con LangSmith |
-| S5 | Pendiente | Evaluación del agente completo |
+| # | Fecha | Título | Módulos |
+|---|-------|--------|--------|
+| 1 | Jul 19 | [Setup de stream y estructura inicial de la API](https://iamdgarcia.substack.com/p/probamos-stream-desde-obs-y-montamos) | 00, 01, 02 |
+| 2 | Jul 26 | [Extracción de documentos con IA (Parte 2)](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos) | 02, 03 |
+| 3 | Ago 2 | [Dashboard de explotación con Claude Code](https://iamdgarcia.substack.com/p/desarrollando-una-app-para-procesar) | 06 |
+| 4 | Ago 9 | [Primeras validaciones: duplicados y supermercados](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos-263) | 04 |
+| 5 | Ago 16 | [Comparaciones semánticas y fuzzy matching](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos-714) | 04, 05 |
+| 6 | Ago 23 | [Desplegamos el proyecto en Railway](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos-411) | 08 |
+
+Todas las sesiones: [iamdgarcia.substack.com/s/directos](https://iamdgarcia.substack.com/s/directos)

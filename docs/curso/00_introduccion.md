@@ -1,6 +1,5 @@
 # Módulo 00 — Introducción y Visión General
 
-![general](../general.png)
 ## ¿Qué vamos a construir?
 
 **Luma Spend** es una API REST que convierte fotos de tickets de supermercado en datos estructurados y los hace consultables mediante lenguaje natural.
@@ -60,7 +59,26 @@ process_documents_api/
 
 ## Diagrama de arquitectura
 
-Ver pestaña **"1. Arquitectura General"** en `docs/diagram.drawio`.
+![Arquitectura general](../general.png)
+
+> Exportado de la pestaña **"1. Arquitectura General"** de `docs/diagram.drawio`.
+
+---
+
+## Sesiones en directo
+
+Este proyecto se construyó en 6 sesiones en directo en Substack:
+
+| # | Fecha | Título | Módulos |
+|---|-------|--------|--------|
+| 1 | Jul 19 | [Setup de stream y estructura inicial de la API](https://iamdgarcia.substack.com/p/probamos-stream-desde-obs-y-montamos) | 00, 01, 02 |
+| 2 | Jul 26 | [Extracción de documentos con IA (Parte 2)](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos) | 02, 03 |
+| 3 | Ago 2 | [Dashboard de explotación con Claude Code](https://iamdgarcia.substack.com/p/desarrollando-una-app-para-procesar) | 06 |
+| 4 | Ago 9 | [Primeras validaciones: duplicados y supermercados](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos-263) | 04 |
+| 5 | Ago 16 | [Comparaciones semánticas y fuzzy matching](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos-714) | 04, 05 |
+| 6 | Ago 23 | [Desplegamos el proyecto en Railway](https://iamdgarcia.substack.com/p/creando-una-app-para-procesar-documentos-411) | 08 |
+
+Todas las sesiones: [iamdgarcia.substack.com/s/directos](https://iamdgarcia.substack.com/s/directos)
 
 ---
 

@@ -1,7 +1,6 @@
 # Módulo 06 — Dashboard de Analíticas
 
 **Ficheros:** `src/app/repositories/analytics.py` · `src/app/api/v1/dashboard.py` · `docs/dashboard_mock.html`
-![dashboard](../dashboard.png)
 ---
 
 ## Las queries de analíticas
@@ -105,6 +104,8 @@ Response 200:
 ---
 
 ## HTML mock
+
+![Dashboard](../dashboard.png)
 
 `docs/dashboard_mock.html` es una página HTML standalone (sin framework) que simula el aspecto del dashboard con datos hardcodeados. Sirve para:
 

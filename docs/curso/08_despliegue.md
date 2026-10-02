@@ -1,5 +1,5 @@
 # Módulo 08 — Despliegue en Railway
-![deploy](../deploy.png)
+
 **Ficheros:** `Dockerfile` · `.env` · `alembic/`
 
 ---
@@ -83,6 +83,9 @@ Alembic es idempotente: si no hay migraciones pendientes, el comando termina inm
 ---
 
 ## Flujo completo de despliegue
+
+![Despliegue en Railway](../deploy.png)
+
 
 ```
 1. git push origin main

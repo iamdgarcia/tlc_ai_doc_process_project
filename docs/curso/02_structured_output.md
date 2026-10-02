@@ -1,5 +1,5 @@
 # Módulo 02 ⭐ — Structured Output con LLM
-![so](../structured_output.png)
+
 **Ficheros:** `src/app/services/llm.py` · `src/app/schemas/extraction.py`
 
 > El módulo más importante del curso. Este patrón es aplicable a cualquier dominio donde necesites convertir un documento no estructurado (imagen, PDF, texto) en datos tipados en Python.
@@ -7,6 +7,8 @@
 ---
 
 ## El problema
+
+![Flujo de Structured Output](../structured_output.png)
 
 Tienes una foto de un ticket de supermercado. Necesitas:
 

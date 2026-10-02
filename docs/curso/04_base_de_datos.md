@@ -1,10 +1,12 @@
 # Módulo 04 — Base de Datos: SQLAlchemy + Alembic
-![data_model](../data_model.png)
+
 **Ficheros:** `src/app/models/` · `src/app/repositories/` · `alembic/`
 
 ---
 
 ## Modelo de datos
+
+![Modelo de datos](../data_model.png)
 
 Cuatro tablas con una relación en cadena:
 
