@@ -84,7 +84,7 @@ Alembic es idempotente: si no hay migraciones pendientes, el comando termina inm
 
 ## Flujo completo de despliegue
 
-![Despliegue en Railway](../deploy.png)
+![Despliegue en Railway](/docs/deploy.png)
 
 
 ```
