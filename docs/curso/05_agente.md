@@ -6,7 +6,7 @@
 
 ## ¿Qué es tool calling?
 
-![Agente conversacional](/docs/agent.png)
+![Agente conversacional](../agent.png)
 
 Los LLMs modernos pueden declarar que quieren llamar a una función externa antes de responder. El flujo es:
 

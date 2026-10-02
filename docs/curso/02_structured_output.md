@@ -8,7 +8,7 @@
 
 ## El problema
 
-![Flujo de Structured Output](/docs/structured_output.png)
+![Flujo de Structured Output](../structured_output.png)
 
 Tienes una foto de un ticket de supermercado. Necesitas:
 

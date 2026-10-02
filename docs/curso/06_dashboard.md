@@ -105,7 +105,7 @@ Response 200:
 
 ## HTML mock
 
-![Dashboard](/docs/dashboard.png)
+![Dashboard](../dashboard.png)
 
 `docs/dashboard_mock.html` es una página HTML standalone (sin framework) que simula el aspecto del dashboard con datos hardcodeados. Sirve para:
 

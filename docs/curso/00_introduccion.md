@@ -59,7 +59,7 @@ process_documents_api/
 
 ## Diagrama de arquitectura
 
-![Arquitectura general](/docs/general.png)
+![Arquitectura general](../general.png)
 
 > Exportado de la pestaña **"1. Arquitectura General"** de `docs/diagram.drawio`.
 

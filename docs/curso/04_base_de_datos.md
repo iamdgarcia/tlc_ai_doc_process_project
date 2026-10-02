@@ -6,7 +6,7 @@
 
 ## Modelo de datos
 
-![Modelo de datos](/docs/data_model.png)
+![Modelo de datos](../data_model.png)
 
 Cuatro tablas con una relación en cadena:
 
