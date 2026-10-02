@@ -1,0 +1,7 @@
+Comprobación nombre producto. -- OK
+Pendiente de definir si método determinístico o consulta semántica. -- Método fuzzy 
+
+
+
+Comprobación precios (cuidado con las comas) -- OK
+

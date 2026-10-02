@@ -4,6 +4,10 @@ Ticket duplicado --> OK
 
 Comprobación nombre supermercado --> OK
 
-Comprobación nombre producto
+
+TODO SEMANA QUE VIENE
+
+Comprobación nombre producto.
+Pendiente de definir si método determinístico o consulta semántica.
 
 Comprobación precios (cuidado con las comas)

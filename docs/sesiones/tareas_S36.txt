@@ -1,0 +1,2 @@
+Generar un dataset de tickets conocidos y comparar entre proveedores de LLM (openai, os, etc) y técnicas de rescalado para acelerar latencia y costes
+

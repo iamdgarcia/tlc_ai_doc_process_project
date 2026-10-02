@@ -5,15 +5,18 @@
 
 
 
-3- Preparar Github
+3- Preparar Github --> OK
 
 
-4- Desplegar en DO
+4- Desplegar en DO --> OK 
 
 
-5- Gestionar login
+5- Gestionar login --> OK
 
-8- Subir tickets desde telegram
+
+8- Subir tickets desde telegram/botón en el dashboard --> OK
+
+9- Gestión de trazas con langsmith --> OK
 
 
 

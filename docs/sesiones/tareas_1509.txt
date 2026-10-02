@@ -1,0 +1,6 @@
+
+1- Evaluar enrutación (como de bien llama a las tools)
+2- Evaluar respuesta final (como de bien se procesa la respuesta de la tool)
+3- Evaluar latencia total
+4- Evaluar consumo de tokens (tokens de razonamiento)
+5- Evaluar experiencia conversacional (tono conversacional, muletillas, estilos de texto escritos)
