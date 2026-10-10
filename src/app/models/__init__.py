@@ -5,5 +5,6 @@ from app.models.supermercado import Supermercado
 from app.models.ticket import Ticket
 from app.models.producto import Producto
 from app.models.linea_ticket import LineaTicket
+from app.models.job import Job
 
-__all__ = ["Base", "Supermercado", "Ticket", "Producto", "LineaTicket"]
+__all__ = ["Base", "Supermercado", "Ticket", "Producto", "LineaTicket", "Job"]

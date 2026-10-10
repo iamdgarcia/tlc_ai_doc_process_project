@@ -195,4 +195,4 @@ class SQLDocumentRepository:
             .with_entities(func.avg(LineaTicket.precio))
             .scalar()
         )
-        return avg_price
+        return float(avg_price) if avg_price is not None else None
