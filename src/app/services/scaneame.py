@@ -68,11 +68,42 @@ class ScaneameTicketResult(BaseModel):
     total_compra: float
 
 
+_MAX_IMAGE_BYTES = 1_500_000  # ~1.5 MB antes de base64 (base64 añade ~33%)
+_MAX_IMAGE_PX = 1920
+
+
+def _compress_image(data: bytes, mime_type: str) -> tuple[bytes, str]:
+    """Reduce imagen a ≤_MAX_IMAGE_BYTES reescalando y recomprimiendo a JPEG."""
+    from PIL import Image  # lazy import — solo se usa con imágenes grandes
+
+    img = Image.open(io.BytesIO(data))
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    # Reescalar si algún lado supera el límite
+    w, h = img.size
+    if max(w, h) > _MAX_IMAGE_PX:
+        scale = _MAX_IMAGE_PX / max(w, h)
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+    # Comprimir con calidad decreciente hasta entrar en el límite
+    for quality in (85, 70, 55):
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        compressed = buf.getvalue()
+        if len(compressed) <= _MAX_IMAGE_BYTES:
+            return compressed, "image/jpeg"
+
+    return compressed, "image/jpeg"  # mejor esfuerzo
+
+
 def _document_input(document_bytes: bytes, content_type: str) -> str:
     """Build the value accepted by Scanéame's `input` field."""
 
     mime_type = content_type.split(";", maxsplit=1)[0].strip().lower()
     if mime_type.startswith("image/"):
+        if len(document_bytes) > _MAX_IMAGE_BYTES:
+            document_bytes, mime_type = _compress_image(document_bytes, mime_type)
         encoded_document = base64.b64encode(document_bytes).decode("ascii")
         return f"data:{mime_type};base64,{encoded_document}"
 
