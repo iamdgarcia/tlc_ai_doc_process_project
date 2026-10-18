@@ -141,7 +141,7 @@
     async function sendChat(text){ const message=(text||'').trim(); if(!message||state.busy)return; state.busy=true; const input=document.getElementById('chat-input'),send=document.getElementById('chat-send'); appendMessage('user',message); input.value=''; input.disabled=true; send.disabled=true; const pending=appendMessage('assistant','Consultando tus tickets…'); try { const response=await api('/api/v1/agent/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})}); const data=await response.json().catch(()=>({})); if(!response.ok)throw new Error(data.detail||`Error ${response.status}`); pending.remove(); appendMessage('assistant',data.response||'No he encontrado una respuesta.'); } catch(error){ pending.remove(); appendMessage('assistant',error.message||'No se pudo consultar el asistente.',true); } finally { state.busy=false; input.disabled=false; send.disabled=false; input.focus(); } }
     document.getElementById('chat-form').addEventListener('submit',event=>{event.preventDefault();sendChat(document.getElementById('chat-input').value);}); document.getElementById('chat-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat(event.target.value);}});
     document.getElementById('chat-reset').addEventListener('click',async()=>{ await api('/api/v1/agent/chat',{method:'DELETE'}); messages.querySelectorAll('.message').forEach(item=>item.remove()); document.getElementById('chat-welcome').classList.remove('hidden'); });
-    if(token())loadDashboard();else showAuth();
+    if(token()){auth.classList.add('hidden');loadDashboard();}else showAuth();
     if(localStorage.getItem('pending_batches'))startBannerTracking();
   </script>
 </body>
