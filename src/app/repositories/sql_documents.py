@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import datetime
+import logging
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
+
+logger = logging.getLogger(__name__)
 
 from app.models.linea_ticket import LineaTicket
 from app.models.producto import Producto
@@ -30,11 +33,11 @@ class SQLDocumentRepository:
             ticket = self._session.get(Ticket, extraction.id_ticket)
             #Comprueba si el ticket existe, si no, crea uno nuevo
             if ticket is None:
-                print(f"Creating new ticket with id_ticket: {extraction.id_ticket}")
+                logger.debug("Creating new ticket: %s", extraction.id_ticket)
                 ticket = Ticket(id_ticket=extraction.id_ticket)
                 self._session.add(ticket)
             else:
-                print(f"Updating existing ticket with id_ticket: {extraction.id_ticket}")
+                logger.debug("Updating existing ticket: %s", extraction.id_ticket)
             ticket.id_supermercado = supermercado.id_supermercado
             ticket.dia = datetime.date.fromisoformat(extraction.dia or "")
             ticket.hora = datetime.time.fromisoformat(extraction.hora or "")
@@ -49,7 +52,7 @@ class SQLDocumentRepository:
                 nombre_raw = nombre
                 nombre = self._similar_fuzzy_product(nombre) or nombre
                 if nombre != nombre_raw:
-                    print(f"Fuzzy matched '{nombre_raw}' to '{nombre}'")
+                    logger.debug("Fuzzy matched '%s' to '%s'", nombre_raw, nombre)
                 producto = self._get_or_create_producto(nombre)
                 cantidad_valor, cantidad_unidad = parse_cantidad(
                     str(producto_data.cantidad) if producto_data.cantidad is not None else None
@@ -63,11 +66,10 @@ class SQLDocumentRepository:
                     and producto_data.precio is not None
                     and abs(producto_data.precio - avg_price) / avg_price > 0.5
                 ):
-                    print(
-                        f"Warning: Price for product '{nombre}' is {producto_data.precio}, "
-                        f"which differs from the average price {avg_price:.2f} by more than 50%"
+                    logger.warning(
+                        "Price for '%s' is %.2f, differs from avg %.2f by >50%%; using original name '%s'",
+                        nombre, producto_data.precio, avg_price, nombre_raw,
                     )
-                    print(f"Rollback to original name: '{nombre_raw}'")
                     producto = self._get_or_create_producto(nombre_raw)
 
 
@@ -91,23 +93,23 @@ class SQLDocumentRepository:
         nombre = nombre.strip().lower()
         sm = self._session.query(Supermercado).filter_by(nombre=nombre).first()
         if sm is None:
-            print(f"Creating new supermercado with nombre: {nombre}")
+            logger.debug("Creating new supermercado: %s", nombre)
             sm = Supermercado(nombre=nombre)
             self._session.add(sm)
             self._session.flush()
         else:
-            print(f"Found existing supermercado with nombre: {nombre}")
+            logger.debug("Found existing supermercado: %s", nombre)
         return sm
 
     def _get_or_create_producto(self, nombre: str) -> Producto:
         p = self._session.query(Producto).filter_by(nombre=nombre).first()
         if p is None:
-            print(f"Creating new producto with nombre: {nombre}")
+            logger.debug("Creating new producto: %s", nombre)
             p = Producto(nombre=nombre)
             self._session.add(p)
             self._session.flush()
         else:
-            print(f"Found existing producto with nombre: {nombre}")
+            logger.debug("Found existing producto: %s", nombre)
         return p
 
     def get_supermercado_list(self) -> list[str]:

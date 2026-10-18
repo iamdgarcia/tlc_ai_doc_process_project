@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Form, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.security import OAuth2PasswordBearer
 
 from app.api.v1.router import router as v1_router
@@ -39,9 +39,18 @@ async def verify_token(token: Annotated[str, Depends(oauth2_scheme)]):
         )
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    return Response(status_code=204)
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_view() -> HTMLResponse:
     return HTMLResponse(_DASHBOARD_HTML.read_text(encoding="utf-8"))
 
 
+# Health is public; everything else requires auth.
+from app.api.v1.health import router as health_router
+app.include_router(health_router)  # /health
+app.include_router(health_router, prefix="/api/v1")  # /api/v1/health
 app.include_router(v1_router, prefix="/api/v1", dependencies=[Depends(verify_token)])

@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -27,10 +29,11 @@ app.dependency_overrides[get_session] = override_get_session
 
 
 def test_dashboard_report_returns_mock_payload() -> None:
-    response = client.get(
-        "/api/v1/dashboard/report",
-        headers={"Authorization": "Bearer changeme"},
-    )
+    with patch("app.main.MASTER_KEY", "changeme"):
+        response = client.get(
+            "/api/v1/dashboard/report",
+            headers={"Authorization": "Bearer changeme"},
+        )
 
     assert response.status_code == 200
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_session
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 def get_batch_status(
     batch_id: str,
     session: Annotated[Session, Depends(get_session)],
+    response: Response,
 ) -> dict:
     jobs = session.query(Job).filter_by(batch_id=batch_id).order_by(Job.created_at).all()
     if not jobs:
@@ -24,6 +25,10 @@ def get_batch_status(
     counts = Counter(j.status for j in jobs)
     pending = counts.get("pending", 0)
     processing = counts.get("processing", 0)
+    complete = pending + processing == 0
+
+    if not complete:
+        response.headers["Retry-After"] = "2"
 
     return {
         "batch_id": batch_id,
@@ -32,7 +37,7 @@ def get_batch_status(
         "processing": processing,
         "done": counts.get("done", 0),
         "failed": counts.get("failed", 0),
-        "complete": pending + processing == 0,
+        "complete": complete,
         "jobs": [
             {
                 "job_id": j.id,

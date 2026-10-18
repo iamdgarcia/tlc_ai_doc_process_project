@@ -84,7 +84,7 @@ class DocumentExtractionService:
                 detail="No se pudo conectar con Scanéame.",
             ) from exc
         except ScaneameAPIError as exc:
-            logger.warning(
+            logger.error(
                 "Scanéame API error for %s (HTTP %s): %s",
                 document_name,
                 exc.status_code,

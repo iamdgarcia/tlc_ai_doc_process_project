@@ -237,13 +237,13 @@ class ScaneameClient:
         job_url = process_url.join(f"/v1/jobs/{quote(job_id, safe='')}")
 
         while monotonic() < deadline:
-            remaining = deadline - monotonic()
-            if self._poll_interval_seconds > 0:
-                await asyncio.sleep(min(self._poll_interval_seconds, max(remaining, 0)))
             response = await client.get(job_url)
             body = self._parse_response(response)
             job_status = body.get("status")
             if job_status in {"queued", "processing"}:
+                remaining = deadline - monotonic()
+                if self._poll_interval_seconds > 0 and remaining > 0:
+                    await asyncio.sleep(min(self._poll_interval_seconds, remaining))
                 continue
             if job_status == "failed":
                 detail = _error_detail(
