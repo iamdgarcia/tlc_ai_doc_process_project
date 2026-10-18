@@ -30,6 +30,7 @@ class Settings:
     openai_base_url: str | None = os.getenv("BASE_URL")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     openai_chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "google/gemma-4-31b-it")
+    ocr_model: str = os.getenv("OCR_MODEL", "deepseek/deepseek-ocr-2")
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./receipts.db")
 
 
