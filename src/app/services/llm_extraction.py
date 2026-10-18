@@ -92,7 +92,9 @@ async def _ocr_image(document_bytes: bytes, mime_type: str) -> str:
         }],
         max_tokens=4096,
     )
-    return (response.choices[0].message.content or "").strip()
+    text = (response.choices[0].message.content or "").strip()
+    logger.debug("OCR output (%d chars): %.200s", len(text), text)
+    return text
 
 
 def _pdf_text(document_bytes: bytes) -> str:
@@ -117,6 +119,7 @@ async def _parse_to_schema(text: str) -> StructuredExtraction:
         max_tokens=1024,
     )
     raw = (response.choices[0].message.content or "{}").strip()
+    logger.debug("Extraction raw response: %.500s", raw)
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -124,6 +127,13 @@ async def _parse_to_schema(text: str) -> StructuredExtraction:
     try:
         return StructuredExtraction.model_validate(data)
     except ValidationError as exc:
+        # Empty dict = the model couldn't extract anything (bad image, unreadable OCR, refusal)
+        if not data:
+            raise ValueError(
+                "El modelo no pudo extraer datos del ticket. "
+                "Comprueba que la imagen sea legible y contenga un ticket de compra."
+            ) from exc
+        logger.warning("Extraction schema mismatch. data=%r error=%s", data, exc)
         raise ValueError(f"Los datos extraídos no cumplen el esquema: {exc}") from exc
 
 
