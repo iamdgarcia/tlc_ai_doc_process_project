@@ -2,19 +2,25 @@ from __future__ import annotations
 
 import logging
 
-import openai
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.repositories.sql_documents import SQLDocumentRepository
 from app.schemas.extraction import DocumentExtractionResponse
-from app.services.llm_extraction import extract_ticket
+from app.services.scaneame import (
+    ScaneameAPIError,
+    ScaneameConfigurationError,
+    ScaneameInputError,
+    ScaneameProcessingTimeout,
+    ScaneameProtocolError,
+    extract_ticket,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentExtractionService:
-    """Coordinates LLM-based OCR extraction and SQL persistence for uploaded documents."""
+    """Coordinates Scanéame extraction and SQL persistence for uploaded documents."""
 
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -46,19 +52,21 @@ class DocumentExtractionService:
             extracted_structure = await extract_ticket(document_bytes, content_type)
         except HTTPException:
             raise
-        except ValueError as exc:
-            # Bad input or model returned unparseable output
-            logger.warning("Extraction input/parse error for %s: %s", document_name, exc)
+        except ScaneameConfigurationError as exc:
+            logger.error("Scanéame is not configured")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SCANEAME_API_KEY no está configurada.") from exc
+        except ScaneameInputError as exc:
+            logger.warning("Invalid Scanéame input for %s: %s", document_name, exc)
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-        except openai.APITimeoutError as exc:
-            logger.error("OCR/extraction timeout for %s", document_name)
-            raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="El modelo tardó demasiado en responder.") from exc
-        except openai.AuthenticationError as exc:
-            logger.error("OCR/extraction auth error for %s", document_name)
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="API key no válida.") from exc
-        except openai.APIError as exc:
-            logger.error("OCR/extraction API error for %s: %s", document_name, exc)
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error del modelo: {exc.message}") from exc
+        except ScaneameProcessingTimeout as exc:
+            logger.error("Scanéame processing timeout for %s", document_name)
+            raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Scanéame tardó demasiado en procesar el documento.") from exc
+        except ScaneameAPIError as exc:
+            logger.error("Scanéame API error for %s (HTTP %s): %s", document_name, exc.status_code, exc.detail)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Error de Scanéame: {exc.detail}") from exc
+        except ScaneameProtocolError as exc:
+            logger.warning("Invalid Scanéame response for %s: %s", document_name, exc)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Scanéame devolvió una respuesta no válida.") from exc
         except Exception as exc:
             logger.exception("Unexpected extraction error for %s", document_name)
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno ({type(exc).__name__}).") from exc
@@ -78,7 +86,7 @@ class DocumentExtractionService:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
-                    "No se pudieron extraer estos campos obligatorios: "
+                    "Scanéame no pudo extraer estos campos obligatorios: "
                     f"{', '.join(missing_fields)}. Comprueba la calidad de la imagen."
                 ),
             )
