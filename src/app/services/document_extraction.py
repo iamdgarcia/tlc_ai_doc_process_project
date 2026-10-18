@@ -66,7 +66,7 @@ class DocumentExtractionService:
                 detail=str(exc),
             ) from exc
         except ScaneameProcessingTimeout as exc:
-            logger.warning("Scanéame processing timeout for %s", document_name)
+            logger.error("Scanéame processing timeout for %s", document_name)
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Scanéame tardó demasiado en procesar el documento.",

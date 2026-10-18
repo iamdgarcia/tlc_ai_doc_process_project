@@ -243,7 +243,10 @@ class ScaneameClient:
             if job_status in {"queued", "processing"}:
                 remaining = deadline - monotonic()
                 if self._poll_interval_seconds > 0 and remaining > 0:
-                    await asyncio.sleep(min(self._poll_interval_seconds, remaining))
+                    # ponytail: simple exponential backoff (cap 8s), reduces load on stuck jobs
+                    polls_so_far = int((self._processing_timeout_seconds - remaining) / max(self._poll_interval_seconds, 1))
+                    backoff = min(self._poll_interval_seconds * (2 ** min(polls_so_far, 3)), 8.0)
+                    await asyncio.sleep(min(backoff, remaining))
                 continue
             if job_status == "failed":
                 detail = _error_detail(

@@ -21,7 +21,7 @@ class Settings:
         os.getenv("SCANEAME_REQUEST_TIMEOUT_SECONDS", "60")
     )
     scaneame_processing_timeout_seconds: float = float(
-        os.getenv("SCANEAME_PROCESSING_TIMEOUT_SECONDS", "180")
+        os.getenv("SCANEAME_PROCESSING_TIMEOUT_SECONDS", "90")
     )
     scaneame_poll_interval_seconds: float = float(
         os.getenv("SCANEAME_POLL_INTERVAL_SECONDS", "1")
