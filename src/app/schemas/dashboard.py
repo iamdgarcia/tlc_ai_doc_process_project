@@ -129,6 +129,16 @@ class ProductPriceReport(BaseModel):
     series: list[PriceSeriesPoint]
 
 
+class TicketRow(BaseModel):
+    """One row in the full tickets table."""
+
+    ticket_id: str
+    date: str
+    store_name: str
+    total: float
+    product_count: int
+
+
 class DashboardReport(BaseModel):
     """Contract returned by the dashboard report endpoint."""
 

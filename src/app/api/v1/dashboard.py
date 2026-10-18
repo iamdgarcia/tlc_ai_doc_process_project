@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_session
 from app.schemas.dashboard import (
     DashboardReport,
+    TicketRow,
 )
 from app.repositories.dashboard import DashboardRepository
 
@@ -26,5 +27,17 @@ async def get_dashboard_report(session: Session = Depends(get_session)) -> Dashb
 
     repository = DashboardRepository(session)
     return repository.get_report()
+
+
+@router.get(
+    "/tickets",
+    response_model=list[TicketRow],
+    summary="Get full tickets table",
+)
+async def get_tickets_table(session: Session = Depends(get_session)) -> list[TicketRow]:
+    """Return all tickets with total, supermarket, product count and date."""
+
+    repository = DashboardRepository(session)
+    return repository.get_tickets_table()
 
 

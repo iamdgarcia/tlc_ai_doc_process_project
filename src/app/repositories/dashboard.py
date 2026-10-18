@@ -24,6 +24,7 @@ from app.schemas.dashboard import (
     SpendingPoint,
     StoreReport,
     SuggestedQuestion,
+    TicketRow,
     TopProductReport,
     VisitSummary,
 )
@@ -308,6 +309,33 @@ class DashboardRepository:
                 store_name=row.store_name,
                 date=row.dia.isoformat(),
                 total=float(row.total or 0),
+            )
+            for row in rows
+        ]
+
+    def get_tickets_table(self) -> list[TicketRow]:
+        """Return all tickets ordered by date desc, with product line count."""
+
+        rows = self._session.execute(
+            select(
+                Ticket.id_ticket,
+                Ticket.dia,
+                Ticket.total,
+                Supermercado.nombre.label("store_name"),
+                func.count(LineaTicket.id).label("product_count"),
+            )
+            .join(Ticket.supermercado)
+            .outerjoin(Ticket.lineas)
+            .group_by(Ticket.id_ticket, Ticket.dia, Ticket.hora, Ticket.total, Supermercado.nombre)
+            .order_by(Ticket.dia.desc(), Ticket.hora.desc())
+        ).all()
+        return [
+            TicketRow(
+                ticket_id=row.id_ticket,
+                date=row.dia.isoformat(),
+                store_name=row.store_name,
+                total=float(row.total or 0),
+                product_count=int(row.product_count or 0),
             )
             for row in rows
         ]
