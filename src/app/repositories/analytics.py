@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.models import LineaTicket, Producto, Supermercado, Ticket
 
+# Tope de filas de history devueltas al contexto del LLM (un producto compradísimo
+# en 3650 días no debe volcar cada línea en la conversación).
+_MAX_PRICE_HISTORY_ROWS = 200
+
 
 class AnalyticsRepository:
     def __init__(self, session: Session) -> None:
@@ -164,6 +168,7 @@ class AnalyticsRepository:
                 LineaTicket.precio.is_not(None),
             )
             .order_by(Ticket.dia, Ticket.hora)
+            .limit(_MAX_PRICE_HISTORY_ROWS)
         ).all()
         prices = [float(row.precio) for row in rows]
         first = prices[0] if prices else None

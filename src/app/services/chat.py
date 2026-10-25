@@ -282,6 +282,12 @@ class ChatService:
     def _handle_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if self._repository is None or self._analytics is None:
             return {"error": "Database session is not configured"}
+        try:
+            return self._dispatch_tool_call(tool_name, arguments)
+        except Exception as exc:  # noqa: BLE001 - los argumentos vienen del modelo: un fallo debe llegarle como error, no ser un 500
+            return {"error": f"{type(exc).__name__}: {exc}"[:300]}
+
+    def _dispatch_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         if tool_name == "get_list_tickets":
             return self._repository.get_ticket_list(arguments.get("limit", 10))
         if tool_name == "get_ticket_data":
