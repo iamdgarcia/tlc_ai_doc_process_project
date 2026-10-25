@@ -25,7 +25,9 @@ def _engine_with_jobs():
     return engine
 
 
-def test_fail_stale_jobs_marks_old_pending_and_processing_jobs_failed() -> None:
+def test_fail_stale_jobs_marks_every_pending_and_processing_job_failed() -> None:
+    """En el arranque no hay nada legítimo en vuelo (BackgroundTasks in-process,
+    un solo worker): el umbral 0 falla TODO pending/processing."""
     engine = _engine_with_jobs()
     now = datetime.datetime(2026, 10, 25, 12, 0, 0)
     with Session(engine) as session:
@@ -70,16 +72,46 @@ def test_fail_stale_jobs_marks_old_pending_and_processing_jobs_failed() -> None:
         )
         session.commit()
 
-        recovered = fail_stale_jobs(session, stale_after_seconds=300, now=now)
+        recovered = fail_stale_jobs(session, now=now)
 
-        assert recovered == 2
-        old_pending = session.get(Job, "j-old-pending")
-        assert old_pending.status == "failed"
-        assert "Interrumpido" in (old_pending.error or "")
-        assert session.get(Job, "j-old-processing").status == "failed"
-        assert session.get(Job, "j-fresh").status == "pending"
+        assert recovered == 3
+        for job_id in ("j-old-pending", "j-old-processing", "j-fresh"):
+            job = session.get(Job, job_id)
+            assert job.status == "failed"
+            assert "Interrumpido" in (job.error or "")
         assert session.get(Job, "j-done").status == "done"
         assert session.get(Job, "j-failed").status == "failed"
+
+
+def test_fail_stale_jobs_honors_an_explicit_threshold() -> None:
+    engine = _engine_with_jobs()
+    now = datetime.datetime(2026, 10, 25, 12, 0, 0)
+    with Session(engine) as session:
+        session.add_all(
+            [
+                Job(
+                    id="j-old",
+                    batch_id="b1",
+                    filename="a.jpg",
+                    status="pending",
+                    created_at=now - datetime.timedelta(seconds=301),
+                ),
+                Job(
+                    id="j-fresh",
+                    batch_id="b1",
+                    filename="b.jpg",
+                    status="pending",
+                    created_at=now - datetime.timedelta(seconds=1),
+                ),
+            ]
+        )
+        session.commit()
+
+        recovered = fail_stale_jobs(session, stale_after_seconds=300, now=now)
+
+        assert recovered == 1
+        assert session.get(Job, "j-old").status == "failed"
+        assert session.get(Job, "j-fresh").status == "pending"
 
 
 def test_startup_lifespan_runs_the_job_sweep_once() -> None:

@@ -17,7 +17,9 @@ def validate_settings(environment: str, master_key: str | None) -> None:
     En producción no puede arrancar la API con la clave por defecto del README:
     mejor un contenedor caído que la API abierta con una clave pública.
     """
-    if environment != "production":
+    # Normaliza casing: ENVIRONMENT=Production debe pasar por el mismo guard
+    # que "production" (un comparador exacto lo saltaba entero).
+    if (environment or "").strip().lower() != "production":
         return
     key = (master_key or "").strip()
     if not key or key.lower() in INSECURE_MASTER_KEYS:

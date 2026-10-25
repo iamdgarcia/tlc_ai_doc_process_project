@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.models.job import Job
 
-# Los BackgroundTasks viven en el proceso: tras un redeploy/restart quedan
-# huérfanos. Umbral conservador por si el arranque compite con un job recién
-# encolado (p. ej. dos procesos en el mismo equipo).
-STALE_JOB_SECONDS = 300
+# Los BackgroundTasks viven en el proceso y solo hay un worker uvicorn: en el
+# instante del arranque no puede haber ningún job legítimo en vuelo. Todo
+# pending/processing que llegue al boot es huérfano de un reinicio anterior, así
+# que el umbral es 0 (un umbral positivo dejaba pendientes para siempre a los
+# jobs encolados <5min antes de reiniciar).
+STALE_JOB_SECONDS = 0
 
 
 def fail_stale_jobs(
@@ -20,7 +22,7 @@ def fail_stale_jobs(
     stale_after_seconds: float = STALE_JOB_SECONDS,
     now: datetime.datetime | None = None,
 ) -> int:
-    """Mark pending/processing jobs older than the threshold as failed.
+    """Mark every pending/processing job as failed (umbral 0 en el arranque).
 
     Sin esto, un job interrumpido por un reinicio se queda en pending/processing
     para siempre y el dashboard lo sondea indefinidamente. Devuelve cuántos marcó.

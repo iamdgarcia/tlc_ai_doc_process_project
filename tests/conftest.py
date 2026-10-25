@@ -1,5 +1,9 @@
+"""Shared fixtures: in-memory engine with a deterministic dataset."""
+
 import datetime
+import os
 import sys
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
@@ -15,6 +19,15 @@ SRC = ROOT / "src"
 
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+# app.main ejecuta Base.metadata.create_all al importar sobre el engine de
+# DATABASE_URL (default sqlite:///./receipts.db): sin esto, cada corrida de
+# pytest escribe/crea receipts.db en la raíz del repo. Fichero temporal del
+# propio harness, fijado ANTES del primer import de app.main (conftest importa
+# antes que cualquier módulo de tests, así que ahí es donde aplica).
+os.environ["DATABASE_URL"] = "sqlite:///" + str(
+    (Path(tempfile.mkdtemp(prefix="docproc-tests-")) / "receipts.db").as_posix()
+)
 
 from app.db.session import get_session  # noqa: E402
 from app.main import app  # noqa: E402

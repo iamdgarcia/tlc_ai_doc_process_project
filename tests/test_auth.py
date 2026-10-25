@@ -50,5 +50,13 @@ def test_validate_settings_allows_strong_key_in_production() -> None:
     validate_settings(environment="production", master_key="a-long-random-secret")
 
 
+def test_validate_settings_normalizes_environment_casing() -> None:
+    """ENVIRONMENT=Production no puede saltarse el guard por comparación exacta."""
+    with pytest.raises(RuntimeError, match="MASTER_KEY"):
+        validate_settings(environment="Production", master_key="changeme")
+    with pytest.raises(RuntimeError, match="MASTER_KEY"):
+        validate_settings(environment=" PRODUCTION ", master_key=None)
+
+
 def test_validate_settings_keeps_dev_default_working() -> None:
     validate_settings(environment="development", master_key="changeme")

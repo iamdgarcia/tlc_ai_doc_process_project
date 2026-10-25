@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+import pytest
 
 from app.api.v1.chat import get_chat_service
 from app.main import app
@@ -100,7 +101,7 @@ def test_price_history_is_capped_before_reaching_the_llm_context() -> None:
                 LineaTicket(
                     id_ticket=f"T-{i}",
                     id_producto=product.id_producto,
-                    precio=1.0,
+                    precio=round(1.0 + i * 0.01, 2),  # sube con el tiempo
                 )
             )
         session.commit()
@@ -109,6 +110,13 @@ def test_price_history_is_capped_before_reaching_the_llm_context() -> None:
 
     assert result["observations"] == 200
     assert len(result["history"]) == 200
+    # La ventana debe ser las 200 compras MÁS RECIENTES (T-50..T-249), no las
+    # más viejas: first/last y el signo del cambio dependen de la dirección.
+    assert result["history"][0]["ticket_id"] == "T-50"
+    assert result["history"][-1]["ticket_id"] == "T-249"
+    assert result["first_price"] == pytest.approx(1.50)
+    assert result["latest_price"] == pytest.approx(3.49)
+    assert result["percentage_change"] > 0
 
 
 def test_concurrent_chat_requests_do_not_share_conversation(seeded_engine) -> None:
