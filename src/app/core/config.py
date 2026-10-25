@@ -7,11 +7,31 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Valores que saben públicos (README, repo): nunca válidos como clave maestra en producción.
+INSECURE_MASTER_KEYS = frozenset({"changeme", "change-me", "change-me-in-dev"})
+
+
+def validate_settings(environment: str, master_key: str | None) -> None:
+    """Fail fast on insecure configuration before the app starts serving.
+
+    En producción no puede arrancar la API con la clave por defecto del README:
+    mejor un contenedor caído que la API abierta con una clave pública.
+    """
+    if environment != "production":
+        return
+    key = (master_key or "").strip()
+    if not key or key.lower() in INSECURE_MASTER_KEYS:
+        raise RuntimeError(
+            "MASTER_KEY must be set to a strong secret when ENVIRONMENT=production "
+            "(unset, empty or a known default like 'changeme' refuses to boot)."
+        )
+
 
 @dataclass(frozen=True)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "Process Documents API")
     environment: str = os.getenv("ENVIRONMENT", "development")
+    master_key: str = os.getenv("MASTER_KEY", "changeme")
     scaneame_api_key: str | None = os.getenv("SCANEAME_API_KEY")
     scaneame_api_url: str = os.getenv(
         "SCANEAME_API_URL", "https://scaneame.iamdgarcia.com/v1/process"
