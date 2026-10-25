@@ -50,16 +50,18 @@ pytest tests/
 
 | Variable | Obligatoria | Default | Descripción |
 |----------|-------------|---------|-------------|
-| `MASTER_KEY` | ✅ | `changeme` | Clave de autenticación de la API |
+| `MASTER_KEY` | ✅ | `changeme` | Clave de autenticación de la API. En `ENVIRONMENT=production` es obligatoria y no puede ser `changeme` (la app no arranca) |
+| `ENVIRONMENT` | — | `development` | `production` activa las validaciones estrictas de arranque |
 | `OPENAI_API_KEY` | ✅ | — | Clave de OpenAI (o proveedor compatible) |
-| `OPENAI_BASE_URL` | — | — | URL base alternativa (Novita, etc.) |
+| `OPENAI_BASE_URL` | — | — | URL base alternativa (Novita, etc.); se sigue aceptando `BASE_URL` por compatibilidad |
 | `OPENAI_MODEL` | — | `gpt-4.1-mini` | Modelo para extracción estructurada |
-| `OPENAI_CHAT_MODEL` | — | `google/gemma-4-31b-it` | Modelo para el agente de chat |
+| `OPENAI_CHAT_MODEL` | — | `google/gemma-4-31b-it` | Modelo para el agente de chat (solo chat) |
+| `OCR_MODEL` | — | `deepseek/deepseek-ocr-2` | Modelo OCR reservado (el OCR va vía Scanéame) |
 | `SCANEAME_API_KEY` | — | — | Clave de Scanéame (si se usa OCR externo) |
 | `SCANEAME_API_URL` | — | `https://scaneame.iamdgarcia.com/v1/process` | URL de Scanéame |
 | `SCANEAME_ENDPOINT` | — | `tickets` | Endpoint de Scanéame |
 | `SCANEAME_REQUEST_TIMEOUT_SECONDS` | — | `60` | Timeout por petición HTTP |
-| `SCANEAME_PROCESSING_TIMEOUT_SECONDS` | — | `180` | Timeout total para jobs asíncronos |
+| `SCANEAME_PROCESSING_TIMEOUT_SECONDS` | — | `90` | Timeout total para jobs asíncronos |
 | `SCANEAME_POLL_INTERVAL_SECONDS` | — | `1` | Intervalo de polling de jobs |
 | `DATABASE_URL` | — | `sqlite:///./receipts.db` | Conexión a base de datos |
 | `LANGSMITH_API_KEY` | — | — | Clave de LangSmith para trazas |
