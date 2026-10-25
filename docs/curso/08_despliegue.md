@@ -80,6 +80,24 @@ alembic upgrade head && uvicorn app.main:app --app-dir src --host 0.0.0.0 --port
 
 Alembic es idempotente: si no hay migraciones pendientes, el comando termina inmediatamente sin tocar la base de datos.
 
+### Base de datos creada antes de Alembic (reparación única)
+
+Si la base de datos se creó con el antiguo `create_all` de SQLAlchemy (sin tabla
+`alembic_version`), el primer despliegue que ejecuta `alembic upgrade head` entra en
+bucle de reinicio: la migración inicial intenta hacer `create_table` de tablas que ya
+existen y falla con `table already exists`.
+
+La reparación es una sola vez, ANTES de desplegar la versión con migraciones, contra
+esa base de datos:
+
+```bash
+alembic stamp head
+```
+
+`stamp` registra en `alembic_version` la revisión más reciente sin ejecutar nada: marca
+el esquema existente como "ya migrado". A partir de ahí, `alembic upgrade head` solo
+aplica las migraciones nuevas.
+
 ---
 
 ## Flujo completo de despliegue

@@ -34,6 +34,8 @@ cp .env.example .env
 
 # Crear la base de datos
 alembic upgrade head
+# ¿Base de datos anterior a Alembic (creada por create_all)? Ejecuta una vez
+# antes: alembic stamp head  (evita "table already exists" en el primer upgrade)
 
 # Arrancar con recarga automática
 uvicorn app.main:app --reload --app-dir src
