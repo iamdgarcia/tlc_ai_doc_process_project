@@ -1,38 +1,18 @@
-import os
-from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from app.db.session import get_session
 from app.main import app
-
-DB_PATH = Path(__file__).resolve().parents[1] / "receipt_mock.db"
-engine = create_engine(f"sqlite:///{DB_PATH}")
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 client = TestClient(app)
 
 
-def override_get_session():
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-app.dependency_overrides[get_session] = override_get_session
-
-
-def test_dashboard_report_returns_mock_payload() -> None:
-    with patch("app.main.MASTER_KEY", "changeme"):
-        response = client.get(
+def test_dashboard_report_returns_mock_payload(api_client) -> None:
+    with patch("app.main.MASTER_KEY", "test-master-key"):
+        response = api_client.get(
             "/api/v1/dashboard/report",
-            headers={"Authorization": "Bearer changeme"},
+            headers={"Authorization": "Bearer test-master-key"},
         )
 
     assert response.status_code == 200

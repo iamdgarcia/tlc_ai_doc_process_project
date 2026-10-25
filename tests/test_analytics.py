@@ -1,20 +1,8 @@
-from pathlib import Path
-
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.dashboard import DashboardRepository
 from app.services.chat import CHAT_TOOLS, ChatService
-
-DB_PATH = Path(__file__).resolve().parents[1] / "receipt_mock.db"
-
-
-@pytest.fixture
-def session():
-    with Session(create_engine(f"sqlite:///{DB_PATH}")) as database_session:
-        yield database_session
 
 
 def test_dashboard_exposes_chat_first_analytics(session) -> None:
