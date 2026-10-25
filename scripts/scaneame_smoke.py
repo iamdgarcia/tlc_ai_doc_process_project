@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-# The local src directory must be added before importing the application package.
-# ruff: noqa: I001
+# Smoke manual contra la API real de Scanéame. NO es un test: se renombró
+# desde scripts/test_scaneame.py (colisionaba con tests/test_scaneame.py y
+# el nombre tentaba a lanzarlo bajo pytest gastando cuota de la API real).
+# Nunca envía nada sin el flag --live.
 
 import argparse
 import asyncio
@@ -23,7 +25,7 @@ from app.services.scaneame import ScaneameError, extract_ticket
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Envía un documento al endpoint tickets de Scanéame."
+        description="Envía un documento al endpoint tickets de Scanéame (API real)."
     )
     parser.add_argument(
         "document",
@@ -36,6 +38,11 @@ def _arguments() -> argparse.Namespace:
         "--content-type",
         help="MIME type opcional; por defecto se deduce de la extensión.",
     )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Obligatorio para enviar la petición real; sin él no se llama a la API.",
+    )
     return parser.parse_args()
 
 
@@ -46,6 +53,14 @@ async def _run(document: Path, content_type: str) -> None:
 
 def main() -> int:
     args = _arguments()
+    if not args.live:
+        print(
+            "Este smoke llama a la API real de Scanéame y gasta cuota. "
+            "Repassa que SCANEAME_API_KEY es la correcta y re-ejecuta con --live.",
+            file=sys.stderr,
+        )
+        return 2
+
     document = args.document.expanduser().resolve()
     if not document.is_file():
         print(f"ERROR: no existe el documento: {document}", file=sys.stderr)
