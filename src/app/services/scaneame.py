@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
+from PIL import Image
 from pydantic import BaseModel, ValidationError
 from pypdf import PdfReader
 
@@ -71,12 +72,27 @@ class ScaneameTicketResult(BaseModel):
 _MAX_IMAGE_BYTES = 1_500_000  # ~1.5 MB antes de base64 (base64 añade ~33%)
 _MAX_IMAGE_PX = 1920
 
+# ponytail: PIL acepta ~178Mpx por defecto (~500MB RGB). Límite explícito;
+# PIL lanza DecompressionBombError por encima del doble de este valor.
+_MAX_IMAGE_PIXELS = 50_000_000
+Image.MAX_IMAGE_PIXELS = _MAX_IMAGE_PIXELS
+
+
+def _open_image(data: bytes) -> Image.Image:
+    """Abre una imagen validando cabecera; los bytes basura/inválidos son 4xx, no 500."""
+    try:
+        return Image.open(io.BytesIO(data))
+    except Image.DecompressionBombError as exc:
+        raise ScaneameInputError(
+            "La imagen es demasiado grande para procesarse."
+        ) from exc
+    except Exception as exc:
+        raise ScaneameInputError("El archivo no es una imagen válida.") from exc
+
 
 def _compress_image(data: bytes, mime_type: str) -> tuple[bytes, str]:
     """Reduce imagen a ≤_MAX_IMAGE_BYTES reescalando y recomprimiendo a JPEG."""
-    from PIL import Image  # lazy import — solo se usa con imágenes grandes
-
-    img = Image.open(io.BytesIO(data))
+    img = _open_image(data)
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
 
@@ -102,6 +118,10 @@ def _document_input(document_bytes: bytes, content_type: str) -> str:
 
     mime_type = content_type.split(";", maxsplit=1)[0].strip().lower()
     if mime_type.startswith("image/"):
+        # Valida la cabecera antes de codificar/gastar bytes: un content-type
+        # mentiroso no debe llegar al proveedor como base64 de basura.
+        with _open_image(document_bytes) as probe:
+            probe.verify()
         if len(document_bytes) > _MAX_IMAGE_BYTES:
             document_bytes, mime_type = _compress_image(document_bytes, mime_type)
         encoded_document = base64.b64encode(document_bytes).decode("ascii")
@@ -231,22 +251,36 @@ class ScaneameClient:
                 f"Estado de procesamiento de Scanéame no reconocido: {response_status!r}."
             )
 
+    def _jobs_url(self, job_id: str) -> httpx.URL:
+        """Jobs endpoint como hermano de la ruta de proceso: preserva el base path.
+
+        `URL.join('/v1/jobs/...')` descartaba cualquier prefijo del api_url
+        (p. ej. https://host/api/v1/process → https://host/v1/jobs/... = 404).
+        """
+        process_url = httpx.URL(self._api_url)
+        parent = process_url.path.rstrip("/").rsplit("/", 1)[0]
+        return process_url.copy_with(path=f"{parent}/jobs/{quote(job_id, safe='')}")
+
     async def _wait_for_job(self, client: httpx.AsyncClient, job_id: str) -> object:
         deadline = monotonic() + self._processing_timeout_seconds
-        process_url = httpx.URL(self._api_url)
-        job_url = process_url.join(f"/v1/jobs/{quote(job_id, safe='')}")
+        job_url = self._jobs_url(job_id)
 
         while monotonic() < deadline:
-            response = await client.get(job_url)
-            body = self._parse_response(response)
+            try:
+                response = await client.get(job_url)
+                body = self._parse_response(response)
+            except httpx.HTTPError:
+                body = None  # error de transporte transitorio: se reintenta hasta el deadline
+            except ScaneameAPIError as exc:
+                if exc.status_code < 500:
+                    raise  # 4xx = error definitivo de la API
+                body = None  # 5xx transitorio
+            if body is None:
+                await self._sleep_between_polls(deadline)
+                continue
             job_status = body.get("status")
             if job_status in {"queued", "processing"}:
-                remaining = deadline - monotonic()
-                if self._poll_interval_seconds > 0 and remaining > 0:
-                    # ponytail: simple exponential backoff (cap 8s), reduces load on stuck jobs
-                    polls_so_far = int((self._processing_timeout_seconds - remaining) / max(self._poll_interval_seconds, 1))
-                    backoff = min(self._poll_interval_seconds * (2 ** min(polls_so_far, 3)), 8.0)
-                    await asyncio.sleep(min(backoff, remaining))
+                await self._sleep_between_polls(deadline)
                 continue
             if job_status == "failed":
                 detail = _error_detail(
@@ -271,6 +305,15 @@ class ScaneameClient:
         raise ScaneameProcessingTimeout(
             "Scanéame no terminó de procesar el documento dentro del tiempo permitido."
         )
+
+    async def _sleep_between_polls(self, deadline: float) -> None:
+        remaining = deadline - monotonic()
+        if self._poll_interval_seconds <= 0 or remaining <= 0:
+            return
+        # ponytail: backoff exponencial simple (cap 8s), reduce la carga en jobs atascados
+        polls_so_far = int((self._processing_timeout_seconds - remaining) / max(self._poll_interval_seconds, 1))
+        backoff = min(self._poll_interval_seconds * (2 ** min(polls_so_far, 3)), 8.0)
+        await asyncio.sleep(min(backoff, remaining))
 
     @staticmethod
     def _parse_response(response: httpx.Response) -> dict[str, Any]:

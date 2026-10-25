@@ -60,8 +60,17 @@ def test_extraction_exposes_safe_unexpected_error(monkeypatch) -> None:
         filename = "ticket.jpg"
         content_type = "image/jpeg"
 
-        async def read(self) -> bytes:
-            return b"image"
+        def __init__(self) -> None:
+            self._cursor = 0
+
+        async def read(self, size: int = -1) -> bytes:
+            data = b"image"
+            if size is None or size < 0:
+                self._cursor = len(data)
+                return data
+            chunk = data[self._cursor : self._cursor + size]
+            self._cursor += len(chunk)
+            return chunk
 
     async def broken_extraction(*_):
         raise RuntimeError("provider response was invalid")

@@ -22,7 +22,7 @@ from app.schemas.extraction import (
     DocumentExtractionError,
     DocumentExtractionResponse,
 )
-from app.services.document_extraction import DocumentExtractionService
+from app.services.document_extraction import DocumentExtractionService, read_capped_upload
 
 
 class _BytesUploadFile:
@@ -33,8 +33,10 @@ class _BytesUploadFile:
         self.content_type = content_type
         self._data = data
 
-    async def read(self) -> bytes:
-        return self._data
+    async def read(self, size: int = -1) -> bytes:
+        if size is None or size < 0:
+            return self._data
+        return self._data[:size]
 
 
 async def _process_job(job_id: str, filename: str, content_type: str, data: bytes) -> None:
@@ -153,7 +155,7 @@ async def extract_documents_async(
     queued: list[tuple[str, str, str, bytes]] = []
 
     for file in files:
-        data = await file.read()
+        data = await read_capped_upload(file)  # 413 si supera el límite por archivo
         job = Job(
             id=str(uuid.uuid4()),
             batch_id=batch_id,
