@@ -22,19 +22,31 @@ from app.schemas.extraction import (
     DocumentExtractionError,
     DocumentExtractionResponse,
 )
-from app.services.document_extraction import DocumentExtractionService
+from app.services.document_extraction import DocumentExtractionService, read_capped_upload
 
 
 class _BytesUploadFile:
-    """Minimal UploadFile stand-in backed by in-memory bytes."""
+    """Minimal UploadFile stand-in backed by in-memory bytes.
+
+    Respeta la semántica de lectura de Starlette: cada read(size) avanza un
+    cursor y devuelve b"" al llegar al EOF. Sin cursor, read_capped_upload
+    (que lee en trozos hasta EOF) acumularía siempre el primer trozo y
+    marcaría como 413 cualquier documento, por pequeño que sea.
+    """
 
     def __init__(self, filename: str, content_type: str, data: bytes) -> None:
         self.filename = filename
         self.content_type = content_type
         self._data = data
+        self._cursor = 0
 
-    async def read(self) -> bytes:
-        return self._data
+    async def read(self, size: int = -1) -> bytes:
+        if size is None or size < 0:
+            self._cursor = len(self._data)
+            return self._data
+        chunk = self._data[self._cursor : self._cursor + size]
+        self._cursor += len(chunk)
+        return chunk
 
 
 async def _process_job(job_id: str, filename: str, content_type: str, data: bytes) -> None:
@@ -153,7 +165,7 @@ async def extract_documents_async(
     queued: list[tuple[str, str, str, bytes]] = []
 
     for file in files:
-        data = await file.read()
+        data = await read_capped_upload(file)  # 413 si supera el límite por archivo
         job = Job(
             id=str(uuid.uuid4()),
             batch_id=batch_id,

@@ -129,3 +129,23 @@ uvicorn app.main:app --reload --app-dir src
 - Añadir categorías a productos cuando haya fuente de datos
 - Migrar a PostgreSQL cuando sea necesario (solo cambiar `DATABASE_URL`)
 - Implementar chatbot en `dashboard.py /chat`
+---
+
+## Sesion 2026-10-25 (auditoria + hardening)
+
+### Resumen rapido
+- Auditoria de 10 tracks sobre el repo (security, governance, deploy, testing, API, data, higiene). Ola de fixes sobre los hallazgos.
+- Baseline de tests: 5 failed / 30 passed (los 5 rojos por depender de receipt_mock.db, fixture gitignored que un clone fresco no tiene). Final: 73 passed / 0 failed, suite hermetica (DB en memoria sembrada en conftest, APIs externas siempre mockeadas).
+
+### Fixes principales
+- **Auth (P0)**: validate_settings() falla al arrancar si ENVIRONMENT=production y MASTER_KEY esta sin definir o es 'changeme'; comparaciones con hmac.compare_digest en /token y verify_token.
+- **Tests hermeticos**: tests/conftest.py siembra una SQLite en memoria (StaticPool) con 5 tickets/5 productos deterministicos; receipt_mock.db ya no se usa.
+- **Migraciones**: revision nueva b7f1c2d3e4a5 crea la tabla job (faltaba en el esquema inicial; /api/v1/jobs daba 'no such table'); Dockerfile CMD ejecuta 'alembic upgrade head' antes de uvicorn; test corre las migraciones reales contra SQLite de scratch.
+- **Uploads**: cap de 10 MB por archivo (413 antes de leer), content-type allowlist (415), Image.MAX_IMAGE_PIXELS explicito con DecompressionBombError -> 4xx, cabecera de imagen verificada (basura con content-type mentiroso = 422, no 500).
+- **Chat**: ChatService por peticion (antes singleton global compartiendo conversacion y sesion), LLM sincrono fuera del event loop (run_in_threadpool), tool calls con error boundary (args malformados = error al modelo, no 500), history de precios capado a 200 filas.
+- **Scaneame**: polling tolera errores transitorios (transporte/5xx) hasta el deadline; 4xx sigue siendo definitivo; URL de jobs construida como hermana de la ruta de proceso (conserva el base path del api_url).
+- **Jobs**: fail_stale_jobs al arrancar marca pending/processing antiguos como failed ('Interrumpido por reinicio del servidor'); antes quedaban colgados para siempre tras un redeploy.
+- **Config**: OPENAI_BASE_URL gana sobre BASE_URL (compatibilidad), .env.example creado (el cp del README fallaba), tabla de env del README ajustada a config.py (timeout real 90, OCR_MODEL, ENVIRONMENT).
+- **CI**: .github/workflows/ci.yml (python 3.12, pytest tests/ -q, cache pip, sin secretos).
+- **Higiene**: scripts/test_scaneame.py -> scripts/scaneame_smoke.py con --live obligatorio (nunca corre bajo pytest); eliminado src/app/repositories/documents.py (sin importadores); docs/SYNERGY.md documenta la relacion con DocProc SaaS.
+

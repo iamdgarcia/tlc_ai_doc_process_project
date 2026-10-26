@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.models import LineaTicket, Producto, Supermercado, Ticket
 
+# Tope de filas de history devueltas al contexto del LLM (un producto compradísimo
+# en 3650 días no debe volcar cada línea en la conversación).
+_MAX_PRICE_HISTORY_ROWS = 200
+
 
 class AnalyticsRepository:
     def __init__(self, session: Session) -> None:
@@ -163,8 +167,15 @@ class AnalyticsRepository:
                 Ticket.dia <= end,
                 LineaTicket.precio.is_not(None),
             )
-            .order_by(Ticket.dia, Ticket.hora)
+            # La ventana debe ser las compras MÁS RECIENTES (el contrato del tool
+            # compara primera vs última compra): pedimos desc y limitamos, y
+            # revertimos aquí para que first/last queden en orden cronológico.
+            # Con order asc + limit, un producto comprado >200 veces devolvía
+            # siempre las compras más viejas y latest_price mentía.
+            .order_by(desc(Ticket.dia), desc(Ticket.hora))
+            .limit(_MAX_PRICE_HISTORY_ROWS)
         ).all()
+        rows = list(reversed(rows))
         prices = [float(row.precio) for row in rows]
         first = prices[0] if prices else None
         last = prices[-1] if prices else None

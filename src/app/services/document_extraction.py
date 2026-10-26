@@ -18,6 +18,36 @@ from app.services.scaneame import (
 
 logger = logging.getLogger(__name__)
 
+# Límite por archivo: 10 MB cubre fotos de tickets con margen y evita el OOM
+# de un contenedor pequeño (el body no tiene límite por defecto en Starlette).
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+async def read_capped_upload(file: UploadFile, max_bytes: int = MAX_UPLOAD_BYTES) -> bytes:
+    """Lee un upload aplicando el límite de tamaño antes y mientras se bufferiza.
+
+    Rechaza con 413 por el tamaño declarado (UploadFile.size) sin leer nada y,
+    si el tamaño declarado miente, corta la lectura en cuanto se supera el tope.
+    """
+    declared_size = getattr(file, "size", None)
+    if declared_size is not None and declared_size > max_bytes:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=_size_error_detail())
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=_size_error_detail())
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _size_error_detail() -> str:
+    return f"El archivo supera el límite de {MAX_UPLOAD_BYTES // (1024 * 1024)} MB por documento."
+
 
 class DocumentExtractionService:
     """Coordinates Scanéame extraction and SQL persistence for uploaded documents."""
@@ -31,19 +61,19 @@ class DocumentExtractionService:
     ) -> DocumentExtractionResponse:
         """Extract structured data from a file and store the result."""
 
-        document_bytes = await file.read()
         document_name = file.filename or "uploaded_file"
         content_type = (file.content_type or "application/octet-stream").lower()
         mime_type = content_type.split(";", maxsplit=1)[0].strip()
-        if not document_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="El archivo está vacío.",
-            )
         if not (mime_type.startswith("image/") or mime_type == "application/pdf"):
             raise HTTPException(
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail=f"Formato no soportado: {content_type}. Usa una imagen o un PDF.",
+            )
+        document_bytes = await read_capped_upload(file)
+        if not document_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="El archivo está vacío.",
             )
 
         repo = SQLDocumentRepository(self._session)
