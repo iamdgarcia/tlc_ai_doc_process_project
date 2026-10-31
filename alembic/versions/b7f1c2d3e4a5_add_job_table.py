@@ -23,6 +23,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add the job table backing /api/v1/jobs, mirroring src/app/models/job.py."""
+    bind = op.get_bind()
+    if "job" in sa.inspect(bind).get_table_names():
+        return
     op.create_table(
         "job",
         sa.Column("id", sa.String(length=36), nullable=False),
