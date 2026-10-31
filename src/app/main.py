@@ -12,13 +12,10 @@ from fastapi.security import OAuth2PasswordBearer
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings, validate_settings
-from app.db.session import SessionLocal, engine
-from app.models import Base
+from app.db.session import SessionLocal, engine  # noqa: F401
 from app.services.job_recovery import fail_stale_jobs
 
 _DASHBOARD_HTML = Path(__file__).resolve().parents[2] / "docs" / "dashboard_mock.html"
-
-Base.metadata.create_all(bind=engine)
 
 MASTER_KEY = settings.master_key
 
